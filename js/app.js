@@ -5805,15 +5805,21 @@ class App {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <!-- 左侧：题目图片 -->
               <div id="ai-question-dropzone" tabindex="0" onclick="app.setAiPasteTarget('question')" ondragover="event.preventDefault()" ondrop="app.handleAiDrop(event, 'question')" class="p-4 rounded-xl bg-white/85 dark:bg-slate-900/80 border-2 border-dashed ${this.aiState.pasteTarget === 'question' ? 'border-indigo-400 dark:border-indigo-600 ring-2 ring-indigo-500/10' : 'border-slate-300 dark:border-slate-700'} transition space-y-3 focus:outline-none">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                   <div class="flex items-center gap-2">
                     <span class="text-xs font-black text-slate-800 dark:text-slate-100">📸 题目图片 (支持多张)</span>
                     <span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 font-bold">必选</span>
                   </div>
-                  <label class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 cursor-pointer transition" onclick="event.stopPropagation()">
-                    + 选择图片 / 拍照
-                    <input type="file" accept="image/*,.heic,.heif" multiple onchange="app.handleAiImageUpload('question', this)" class="hidden" />
-                  </label>
+                  <div class="flex items-center gap-1.5">
+                    <label class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer transition shadow-2xs" onclick="event.stopPropagation()">
+                      📷 直接拍照
+                      <input type="file" accept="image/*" capture="environment" onchange="app.handleAiImageUpload('question', this)" class="hidden" />
+                    </label>
+                    <label class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 cursor-pointer transition" onclick="event.stopPropagation()">
+                      🖼️ 相册选图
+                      <input type="file" accept="image/*,.heic,.heif" multiple onchange="app.handleAiImageUpload('question', this)" class="hidden" />
+                    </label>
+                  </div>
                 </div>
 
                 ${qImgs.length === 0 ? `
@@ -5849,15 +5855,21 @@ class App {
 
               <!-- 右侧：Mark Scheme 答案图 (可选) -->
               <div id="ai-ms-dropzone" tabindex="0" onclick="app.setAiPasteTarget('ms')" ondragover="event.preventDefault()" ondrop="app.handleAiDrop(event, 'ms')" class="p-4 rounded-xl bg-white/85 dark:bg-slate-900/80 border-2 border-dashed ${this.aiState.pasteTarget === 'ms' ? 'border-violet-400 dark:border-violet-600 ring-2 ring-violet-500/10' : 'border-slate-300 dark:border-slate-700'} transition space-y-3 focus:outline-none">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                   <div class="flex items-center gap-2">
                     <span class="text-xs font-black text-slate-800 dark:text-slate-100">📋 Mark Scheme / 答案图</span>
                     <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-semibold">可选</span>
                   </div>
-                  <label class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 hover:bg-violet-100 cursor-pointer transition" onclick="event.stopPropagation()">
-                    + 上传答案图
-                    <input type="file" accept="image/*,.heic,.heif" multiple onchange="app.handleAiImageUpload('ms', this)" class="hidden" />
-                  </label>
+                  <div class="flex items-center gap-1.5">
+                    <label class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-violet-600 text-white hover:bg-violet-700 cursor-pointer transition shadow-2xs" onclick="event.stopPropagation()">
+                      📷 拍答案
+                      <input type="file" accept="image/*" capture="environment" onchange="app.handleAiImageUpload('ms', this)" class="hidden" />
+                    </label>
+                    <label class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 hover:bg-violet-100 cursor-pointer transition" onclick="event.stopPropagation()">
+                      🖼️ 相册选图
+                      <input type="file" accept="image/*,.heic,.heif" multiple onchange="app.handleAiImageUpload('ms', this)" class="hidden" />
+                    </label>
+                  </div>
                 </div>
 
                 ${msImgs.length === 0 ? `
