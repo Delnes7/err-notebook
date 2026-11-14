@@ -14,8 +14,8 @@ class App {
     this.exams = [];
     this.questions = [];
     
-    // 主题与显示设置
-    this.theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    // 主题与显示设置 ('system' | 'light' | 'dark')
+    this.theme = localStorage.getItem('theme') || 'system';
     this.questionFontSize = localStorage.getItem('question_font_size') || 'medium'; // 'normal' | 'medium' | 'large'
 
     // 错题库筛选条件
@@ -146,6 +146,14 @@ class App {
 
   async init() {
     this.applyTheme(this.theme);
+    const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq && typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', () => {
+        if (this.theme === 'system') {
+          this.applyTheme('system');
+        }
+      });
+    }
 
     try {
       await window.db.ready();
@@ -181,19 +189,30 @@ class App {
     }
   }
 
-  // --- 主题切换 ---
+  // --- 主题切换 ('system' | 'light' | 'dark') ---
   applyTheme(theme) {
-    this.theme = theme;
-    localStorage.setItem('theme', theme);
+    const valid = ['system', 'light', 'dark'].includes(theme) ? theme : 'system';
+    this.theme = valid;
+    localStorage.setItem('theme', valid);
+
+    const prefersDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const effective = valid === 'system' ? (prefersDark ? 'dark' : 'light') : valid;
+
     const html = document.documentElement;
-    if (theme === 'dark') {
+    if (effective === 'dark') {
       html.classList.add('dark');
     } else {
       html.classList.remove('dark');
     }
+
     const themeIcon = document.getElementById('theme-toggle-icon');
     if (themeIcon) {
-      themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+      themeIcon.textContent = valid === 'system' ? '🌗' : (valid === 'dark' ? '🌙' : '☀️');
+    }
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    if (themeBtn) {
+      const labelMap = { system: '跟随系统', light: '浅色模式', dark: '深色模式' };
+      themeBtn.title = `当前外观：${labelMap[valid]}（点击切换：跟随系统 → 浅色 → 深色）`;
     }
     if (this.currentTab === 'exams') {
       this.renderExamsCharts();
@@ -201,7 +220,14 @@ class App {
   }
 
   toggleTheme() {
-    this.applyTheme(this.theme === 'dark' ? 'light' : 'dark');
+    const nextMap = { system: 'light', light: 'dark', dark: 'system' };
+    const next = nextMap[this.theme] || 'system';
+    this.applyTheme(next);
+    const labelMap = { system: '🌗 已切换为：跟随系统外观', light: '☀️ 已切换为：浅色模式', dark: '🌙 已切换为：深色模式' };
+    this.showToast(labelMap[next], 'info');
+    if (this.currentTab === 'settings') {
+      this.render();
+    }
   }
 
   // --- 官方 Task Grade Scale 核心等级换算函数 (图1 A Level & 图2 CNCC) ---
@@ -6801,6 +6827,19 @@ class App {
             <span>数据备份与系统设置</span>
           </h2>
           <p class="text-xs text-slate-500 mt-1">多设备云同步 + 本地离线存储，随时备份与还原</p>
+        </div>
+
+        <!-- 外观主题设置 -->
+        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100">🎨 外观主题</h3>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">支持自动跟随 Mac / iPad / iPhone 系统深浅色切换</p>
+          </div>
+          <div class="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold">
+            <button type="button" onclick="app.applyTheme('system'); app.render();" class="px-3 py-1.5 rounded-lg transition ${this.theme === 'system' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-300'}">🌗 跟随系统</button>
+            <button type="button" onclick="app.applyTheme('light'); app.render();" class="px-3 py-1.5 rounded-lg transition ${this.theme === 'light' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-300'}">☀️ 浅色</button>
+            <button type="button" onclick="app.applyTheme('dark'); app.render();" class="px-3 py-1.5 rounded-lg transition ${this.theme === 'dark' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-300'}">🌙 深色</button>
+          </div>
         </div>
 
         <!-- 多设备云同步 (Supabase) -->
