@@ -1,25 +1,8 @@
 # 📖 十一学校国际部 A Level & CNCC 智慧学业与错题本
 
-专为**北京十一学校国际部 (BNDS International Division) A Level 项目**同学量身定制的现代化网页版学业管理与错题复盘系统。
+专为**北京十一学校国际部 (BNDS International Department) A Level 项目**同学量身定制的现代化网页版学业管理与错题复盘系统。
 
 不仅是一个高效的错题本，更是一个**全学科成绩追踪、学情诊断与数据可视化分析中心**。全面适配你正在学习的 **A Level 核心学科**（数学【纯数学1 P1、概率与统计1 S1】、物理 9702、经济 9708）以及必须修读的 **CNCC 国家课程科目**（地理、生物、化学）。支持**单次小考关联多个考查单元、多次小考自动折算 Task Grade、多维数据走势图表与单元专项组卷重练**。
-
----
-
-## 🎯 针对你学习科目的专属适配
-
-### 1. 📚 学科与单元体系（已全量预置）
-- **A Level 数学 (9709)**：
-  - **[P1 纯数学1]**：Quadratics 二次函数、Functions 复合与反函数、Coordinate Geometry 解析几何、Circular Measure 弧度制扇形、Trigonometry 三角恒等式与方程、Series 二项式与数列(AP/GP)、Differentiation 微分导数切线、Integration 定积分与封闭面积。
-  - **[S1 概率与统计1]**：Representation of Data 数据统计与箱线图、Permutations & Combinations 排列组合、Probability 互斥独立与条件概率、Discrete Random Variables 离散变量与期望方差、Normal Distribution 正态分布与查表计算。
-- **A Level 物理 (9702)**：
-  - 物理量与SI单位、运动学 (Kinematics)、动力学与动量守恒 (Dynamics)、受力平衡 (Forces)、功与动能定理 (Work & Energy)、固体形变与杨氏模量 (Deformation)、波动与多普勒 (Waves)、双缝干涉与光栅 (Superposition)、直流电路与分压器电路 (Electricity)、粒子物理与夸克模型 (Particle Physics)。
-- **A Level 经济 (9708)**：
-  - 基础概念与PPC、价格机制与弹性 (PED/PES/YED/XED)、政府微观干预 (税收/补贴/限价)、市场失灵与外部性、宏观指标与AD/AS、宏观政策 (财政/货币/供给侧)、国际贸易与比较优势、汇率与国际收支 BOP。
-- **CNCC 国家课程三科**：
-  - **CNCC 地理**：宇宙中的地球、大气受热与气压带风带、水循环与洋流、常见地貌类型、人口分布与城镇化、工农业区位与可持续发展。
-  - **CNCC 生物**：分子组成与细胞结构、物质跨膜运输、光合作用与呼吸作用、细胞增殖分化、孟德尔遗传规律、基因表达与变异。
-  - **CNCC 化学**：物质分类与离子反应、氧化还原反应规律、常见金属(Na/Fe/Al)、常见非金属(Cl/S/N)、物质的量计算、化学能与电化学。
 
 ---
 
