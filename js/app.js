@@ -34,6 +34,7 @@ class App {
       subjectId: 'all',
       type: 'all',
       category: 'all',
+      categories: ['attainment', 'skills', 'behavior', 'final'],
       chartSubjectId: 'all',
       chartCategory: 'all',
       chartCategories: ['attainment', 'skills', 'final'], // 考核项目多选状态 (Learning Behaviour 排除在折线图外)
@@ -4322,24 +4323,16 @@ class App {
       this.examFilter.unitSubjectId = this.subjects[0].id;
     }
 
-    // 按当前所选学科与考核维度过滤小考列表
+    // 按当前所选学科与考核维度（支持多选）过滤小考列表
+    const selectedCats = Array.isArray(this.examFilter.categories) && this.examFilter.categories.length > 0
+      ? this.examFilter.categories
+      : ['attainment', 'skills', 'behavior', 'final'];
+    const isAllCats = selectedCats.length >= 4;
+
     const filteredExams = this.exams.filter(e => {
       if (this.examFilter.subjectId !== 'all' && e.subjectId !== this.examFilter.subjectId) return false;
-      if (this.examFilter.category && this.examFilter.category !== 'all') {
-        const cat = this.examFilter.category;
-        if (cat === 'attainment') {
-          if (e.category !== 'attainment' && e.category !== 'att_p1' && e.category !== 'att_s1' && e.category !== 'exams') {
-            if (e.category || e.isFinal || e.type === 'Final') return false;
-          }
-        } else if (cat === 'final') {
-          if (e.category !== 'final' && e.category !== 'final_p1' && e.category !== 'final_s1' && !e.isFinal && e.type !== 'Final') return false;
-        } else if (cat === 'skills') {
-          if (e.category !== 'skills') return false;
-        } else if (cat === 'behavior') {
-          if (e.category !== 'behavior') return false;
-        } else if (e.category !== cat) {
-          return false;
-        }
+      if (!isAllCats) {
+        return selectedCats.some(cat => this._examMatchesCategory(e, cat));
       }
       return true;
     }).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
@@ -5178,18 +5171,23 @@ class App {
       subtitle: `记录每次平时考核的卷面分、折算百分比、Task Grade 以及复盘笔记`,
       badge: `${filteredExams.length} 条记录`,
       extraActionHtml: `
-        <div class="flex items-center gap-2 text-xs">
+        <div class="flex flex-wrap items-center gap-1.5 text-xs">
           <select onchange="app.setExamFilter('subjectId', this.value)" class="px-2.5 py-1 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold focus:outline-none">
             <option value="all">全部学科</option>
             ${this.subjects.map(s => `<option value="${s.id}" ${this.examFilter.subjectId === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
           </select>
-          <select onchange="app.setExamFilter('category', this.value)" class="px-2.5 py-1 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold focus:outline-none">
-            <option value="all" ${(!this.examFilter.category || this.examFilter.category === 'all') ? 'selected' : ''}>全维度</option>
-            <option value="attainment" ${this.examFilter.category === 'attainment' ? 'selected' : ''}>Attainment</option>
-            <option value="skills" ${this.examFilter.category === 'skills' ? 'selected' : ''}>Course Skills</option>
-            <option value="behavior" ${this.examFilter.category === 'behavior' ? 'selected' : ''}>Learning Behavior</option>
-            <option value="final" ${this.examFilter.category === 'final' ? 'selected' : ''}>Final</option>
-          </select>
+          <div class="flex flex-wrap items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/70 dark:border-slate-700/70">
+            <button type="button" onclick="app.toggleExamListCategory('all')" class="px-2 py-0.5 rounded-lg text-[11px] font-semibold transition cursor-pointer ${isAllCats ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'}">全维度</button>
+            ${[
+              { id: 'attainment', label: 'Attainment' },
+              { id: 'skills', label: 'Course Skills' },
+              { id: 'behavior', label: 'Learning Behavior' },
+              { id: 'final', label: 'Final' }
+            ].map(c => {
+              const active = selectedCats.includes(c.id);
+              return `<button type="button" onclick="app.toggleExamListCategory('${c.id}')" class="px-2 py-0.5 rounded-lg text-[11px] font-semibold transition cursor-pointer ${active ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'}">${c.label}</button>`;
+            }).join('')}
+          </div>
         </div>
       `,
       contentHtml: `
@@ -5437,6 +5435,38 @@ class App {
     this.practiceFilter.unitIds = unitId ? [unitId] : [];
     this.switchTab('practice');
     this.generateUnitPracticePaper(0); // 优先组卷待攻克错题
+  }
+
+  _examMatchesCategory(e, cat) {
+    if (cat === 'attainment') {
+      if (e.category === 'attainment' || e.category === 'att_p1' || e.category === 'att_s1' || e.category === 'exams') return true;
+      return !e.category && !e.isFinal && e.type !== 'Final';
+    }
+    if (cat === 'final') {
+      return e.category === 'final' || e.category === 'final_p1' || e.category === 'final_s1' || !!e.isFinal || e.type === 'Final';
+    }
+    if (cat === 'skills') return e.category === 'skills';
+    if (cat === 'behavior') return e.category === 'behavior';
+    return e.category === cat;
+  }
+
+  toggleExamListCategory(catId) {
+    const allCats = ['attainment', 'skills', 'behavior', 'final'];
+    if (!Array.isArray(this.examFilter.categories) || this.examFilter.categories.length === 0) {
+      this.examFilter.categories = [...allCats];
+    }
+    if (catId === 'all') {
+      this.examFilter.categories = [...allCats];
+    } else if (this.examFilter.categories.includes(catId)) {
+      if (this.examFilter.categories.length === 1) {
+        this.examFilter.categories = [...allCats];
+      } else {
+        this.examFilter.categories = this.examFilter.categories.filter(c => c !== catId);
+      }
+    } else {
+      this.examFilter.categories.push(catId);
+    }
+    this.render();
   }
 
   setExamFilter(key, value) {
