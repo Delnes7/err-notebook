@@ -3075,7 +3075,7 @@ class App {
               </div>
             </div>
             ${(p.afterText && p.afterText.trim()) ? `
-              <div class="my-2 px-3.5 py-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/50 border-l-4 border-indigo-400 dark:border-indigo-500 text-slate-700 dark:text-slate-300 text-sm leading-relaxed markdown-body">
+              <div class="my-2 px-4 py-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/50 border-l-4 border-indigo-400 dark:border-indigo-500 text-slate-800 dark:text-slate-200 leading-relaxed markdown-body question-part-text">
                 ${window.markdownRenderer.render(p.afterText)}
               </div>
             ` : ''}
