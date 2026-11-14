@@ -18,7 +18,8 @@ class GeminiAIHelper {
         apiKey: 'openai_api_key',
         model: 'openai_model',
         baseUrl: 'openai_base_url'
-      }
+      },
+      updatedAt: 'ai_config_updated_at'
     };
     this.defaults = {
       gemini: {
@@ -82,7 +83,57 @@ class GeminiAIHelper {
       const cleanBase = (baseUrl || def.baseUrl).trim().replace(/\/+$/, '') || def.baseUrl;
       localStorage.setItem(keys.baseUrl, cleanBase);
     }
+    localStorage.setItem(this.storageKeys.updatedAt, new Date().toISOString());
+    if (window.cloudSync && window.cloudSync.isLoggedIn()) {
+      window.cloudSync.pushItem('meta', 'ai_config', this.exportSyncPayload()).catch(() => {});
+    }
     return this.getConfig(p);
+  }
+
+  hasAnySyncableConfig() {
+    const gemKey = (localStorage.getItem(this.storageKeys.gemini.apiKey) || '').trim();
+    const dsKey = (localStorage.getItem(this.storageKeys.deepseek.apiKey) || '').trim();
+    const updatedAt = (localStorage.getItem(this.storageKeys.updatedAt) || '').trim();
+    return !!(gemKey || dsKey || updatedAt);
+  }
+
+  exportSyncPayload() {
+    return {
+      provider: this.getProvider(),
+      gemini: {
+        apiKey: (localStorage.getItem(this.storageKeys.gemini.apiKey) || '').trim(),
+        model: (localStorage.getItem(this.storageKeys.gemini.model) || '').trim(),
+        baseUrl: (localStorage.getItem(this.storageKeys.gemini.baseUrl) || '').trim()
+      },
+      deepseek: {
+        apiKey: (localStorage.getItem(this.storageKeys.deepseek.apiKey) || '').trim(),
+        model: (localStorage.getItem(this.storageKeys.deepseek.model) || '').trim(),
+        baseUrl: (localStorage.getItem(this.storageKeys.deepseek.baseUrl) || '').trim()
+      },
+      updatedAt: (localStorage.getItem(this.storageKeys.updatedAt) || '').trim() || new Date().toISOString()
+    };
+  }
+
+  importSyncPayload(payload) {
+    if (!payload || typeof payload !== 'object') return;
+    if (payload.provider === 'gemini' || payload.provider === 'deepseek') {
+      localStorage.setItem(this.storageKeys.provider, payload.provider);
+    }
+    if (payload.gemini && typeof payload.gemini === 'object') {
+      const k = this.storageKeys.gemini;
+      if (payload.gemini.apiKey !== undefined) localStorage.setItem(k.apiKey, String(payload.gemini.apiKey || '').trim());
+      if (payload.gemini.model !== undefined) localStorage.setItem(k.model, String(payload.gemini.model || '').trim());
+      if (payload.gemini.baseUrl !== undefined) localStorage.setItem(k.baseUrl, String(payload.gemini.baseUrl || '').trim());
+    }
+    if (payload.deepseek && typeof payload.deepseek === 'object') {
+      const k = this.storageKeys.deepseek;
+      if (payload.deepseek.apiKey !== undefined) localStorage.setItem(k.apiKey, String(payload.deepseek.apiKey || '').trim());
+      if (payload.deepseek.model !== undefined) localStorage.setItem(k.model, String(payload.deepseek.model || '').trim());
+      if (payload.deepseek.baseUrl !== undefined) localStorage.setItem(k.baseUrl, String(payload.deepseek.baseUrl || '').trim());
+    }
+    if (payload.updatedAt) {
+      localStorage.setItem(this.storageKeys.updatedAt, String(payload.updatedAt));
+    }
   }
 
   hasApiKey() {

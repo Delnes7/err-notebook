@@ -6120,7 +6120,8 @@ class App {
       return;
     }
     window.geminiAI.saveConfig({ apiKey: key });
-    this.showToast('Gemini API Key 已保存至本地浏览器！', 'success');
+    const syncedMsg = (window.cloudSync && window.cloudSync.isLoggedIn()) ? '已保存并同步至云端！' : '已保存至本地浏览器！';
+    this.showToast(`API Key ${syncedMsg}`, 'success');
     this.render();
   }
 
@@ -6691,11 +6692,14 @@ class App {
       badgeEl.textContent = hasKey ? '已配置密钥' : '未配置密钥';
     }
     const label = provider === 'deepseek' ? 'DeepSeek / OpenAI' : 'Gemini';
-    this.showToast(`${label} AI 配置已保存至本地浏览器！`, 'success');
+    const isCloudLoggedIn = !!(window.cloudSync && window.cloudSync.isLoggedIn());
+    this.showToast(`${label} AI 配置${isCloudLoggedIn ? '已保存并同步至云端' : '已保存至本地浏览器'}！`, 'success');
     const statusEl = document.getElementById('settings-gemini-status');
     if (statusEl) {
       statusEl.className = 'text-xs text-emerald-600 dark:text-emerald-400 font-semibold';
-      statusEl.textContent = '✅ 配置已保存到本地浏览器 (localStorage)';
+      statusEl.textContent = isCloudLoggedIn
+        ? '✅ 配置已保存到本地并自动同步至云端账号'
+        : '✅ 配置已保存到本地浏览器 (localStorage)';
     }
   }
 

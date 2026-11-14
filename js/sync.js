@@ -218,6 +218,17 @@ class CloudSyncManager {
       updated_at: nowIso,
       deleted: false
     });
+    if (window.geminiAI && window.geminiAI.hasAnySyncableConfig()) {
+      const aiPayload = window.geminiAI.exportSyncPayload();
+      rows.push({
+        user_id: uid,
+        item_type: 'meta',
+        item_id: 'ai_config',
+        data: aiPayload,
+        updated_at: aiPayload.updatedAt || nowIso,
+        deleted: false
+      });
+    }
     return rows;
   }
 
@@ -315,6 +326,8 @@ class CloudSyncManager {
               await window.db.saveAssessmentConfigs(row.data || {}, true);
             } else if (row.item_id === 'subject_category_scores') {
               await window.db.saveCategoryScores(row.data || {}, true);
+            } else if (row.item_id === 'ai_config' && window.geminiAI) {
+              window.geminiAI.importSyncPayload({ ...(row.data || {}), updatedAt: row.updated_at || (row.data && row.data.updatedAt) || '' });
             }
             continue;
           }
@@ -368,10 +381,27 @@ class CloudSyncManager {
         if (row.item_type === 'meta') {
           if (row.item_id === 'subject_assessment_configs') {
             await window.db.saveAssessmentConfigs(row.data || {}, true);
+            pulled++;
           } else if (row.item_id === 'subject_category_scores') {
             await window.db.saveCategoryScores(row.data || {}, true);
+            pulled++;
+          } else if (row.item_id === 'ai_config' && window.geminiAI) {
+            const localPayload = window.geminiAI.exportSyncPayload();
+            const localAiTime = localPayload.updatedAt ? new Date(localPayload.updatedAt).getTime() : 0;
+            if (!window.geminiAI.hasAnySyncableConfig() || cloudTime >= localAiTime) {
+              window.geminiAI.importSyncPayload({ ...(row.data || {}), updatedAt: row.updated_at || (row.data && row.data.updatedAt) || '' });
+              pulled++;
+            } else {
+              toPush.push({
+                user_id: this.user.id,
+                item_type: 'meta',
+                item_id: 'ai_config',
+                data: localPayload,
+                updated_at: localPayload.updatedAt || new Date().toISOString(),
+                deleted: false
+              });
+            }
           }
-          pulled++;
           continue;
         }
 
@@ -409,6 +439,18 @@ class CloudSyncManager {
             deleted: false
           });
         }
+      }
+
+      if (!cloudMap.has('meta:ai_config') && window.geminiAI && window.geminiAI.hasAnySyncableConfig()) {
+        const localPayload = window.geminiAI.exportSyncPayload();
+        toPush.push({
+          user_id: this.user.id,
+          item_type: 'meta',
+          item_id: 'ai_config',
+          data: localPayload,
+          updated_at: localPayload.updatedAt || new Date().toISOString(),
+          deleted: false
+        });
       }
 
       if (toPush.length > 0) {
@@ -456,6 +498,8 @@ class CloudSyncManager {
             await window.db.saveAssessmentConfigs(row.data || {}, true);
           } else if (row.item_id === 'subject_category_scores') {
             await window.db.saveCategoryScores(row.data || {}, true);
+          } else if (row.item_id === 'ai_config' && window.geminiAI) {
+            window.geminiAI.importSyncPayload({ ...(row.data || {}), updatedAt: row.updated_at || (row.data && row.data.updatedAt) || '' });
           }
           continue;
         }
