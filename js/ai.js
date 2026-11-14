@@ -539,13 +539,13 @@ CRITICAL FORMATTING RULES:
 
 5. **Mark Scheme / Solution Parsing**:
 ${hasMarkScheme
-        ? `   - MARK SCHEME IMAGE(S) ARE PROVIDED! Carefully match each sub-part (\`(a)\`, \`(b)\`, \`(c)\`...) and transcribe EVERY step row into \`solutionRows\` with \`question\` (put label on first row like \`"(c)"\`, empty string \`""\` on subsequent rows of same part), \`answer\` (exact LaTeX steps/final answer), \`marks\` (exact code like \`"B1"\`, \`"M1"\`, \`"A1"\`, \`"B1 FT"\`, \`"SC B1"\`), and \`guidance\` (exact examiner guidance notes).`
+        ? `   - MARK SCHEME IMAGE(S) ARE PROVIDED! Carefully match each sub-part (\`(a)\`, \`(b)\`, \`(c)\`...) and transcribe EVERY step row into \`solutionRows\` with \`question\` (put label on first row like \`"(c)"\`, empty string \`""\` on subsequent rows of same part), \`answer\` (exact LaTeX steps/final answer), \`marks\` (exact code like \`"B1"\`, \`"M1"\`, \`"A1"\`, \`"B1 FT"\`, \`"SC B1"\`), and \`guidance\` (exact examiner guidance notes). ALWAYS include the part's final total-marks row at the end of \`solutionRows\` (e.g. \`{ "question": "", "answer": "", "marks": "3", "guidance": "" }\` with ONLY the total integer in \`marks\` and empty strings for the other 3 columns).`
         : autoGenerateSolution
           ? `   - No Mark Scheme image was provided. Generate an official CIE-style Mark Scheme in \`solutionRows\` (or \`mcqSolutionRows\` if no sub-parts / MCQ), strictly following Cambridge International Mark Scheme conventions:
      - **Language**: Use the SAME language as the question (for English CIE questions, write \`answer\` and \`guidance\` in concise English — NEVER Chinese).
      - **\`question\` column**: Put ONLY the question/sub-part label (e.g. \`"(a)"\`, \`"(b)"\`, or question number / \`"本题"\`) on the FIRST row of each part, and \`""\` (empty string) on all subsequent rows of that part. NEVER put step names like \`P(A)\` or \`结论\` in \`question\`.
      - **\`answer\` column**: Show the key mathematical working and final conclusion in \`$...$\` LaTeX (plus brief English phrase like \`so events are independent\` if needed).
-     - **\`marks\` column**: Assign realistic CIE mark codes (\`"B1"\`, \`"M1"\`, \`"A1"\`, \`"B1 FT"\`, \`"M1 A1"\`) whose sum matches the question's mark count (e.g. for a \`[3]\` mark question, use rows totaling 3 marks such as \`B1\`, \`M1\`, \`A1\`, and optionally add a final total row \`{ "question": "", "answer": "", "marks": "3", "guidance": "" }\`). NEVER write \`"AI参考"\`.
+     - **\`marks\` column**: Assign realistic CIE mark codes (\`"B1"\`, \`"M1"\`, \`"A1"\`, \`"B1 FT"\`, \`"M1 A1"\`) whose sum matches the question's mark count (e.g. for a \`[3]\` mark question, use rows totaling 3 marks such as \`B1\`, \`M1\`, \`A1\`), and ALWAYS append a final total row \`{ "question": "", "answer": "", "marks": "3", "guidance": "" }\` (ONLY the total integer in \`marks\`, empty strings for \`question\`, \`answer\`, \`guidance\`) as the last row of each part (and for single-part questions). NEVER write \`"AI参考"\`.
      - **\`guidance\` column**: Write concise CIE examiner guidance in English (e.g. \`"Both stated, accept unsimplified."\` / \`"OE"\` / \`"Evaluated and conclusion stated."\` / \`"FT from their P(A) and P(B)"\`).`
           : `   - No Mark Scheme image was provided. Leave \`solutionRows\` and \`mcqSolutionRows\` as empty arrays \`[]\`.`
       }
@@ -723,15 +723,51 @@ OUTPUT FORMAT (return ONLY a valid JSON object matching this exact structure, no
     return str.replace(/\\n(?!(?:eq|e|u|abla|otin|atural|less|gtr|mid|parallel|sim|cong|subset|subseteq|vdash|exists|rightarrow|leftarrow|Rightarrow|Leftarrow|leftrightarrow|Leftrightarrow|ewline|olimits|umber|ot)\b)/g, '\n');
   }
 
-  _normalizeSolutionRows(rows) {
+  _normalizeSolutionRows(rows, expectedTotalMarks = null) {
     if (!Array.isArray(rows)) return [];
-    return rows.map(r => ({
+    const normalized = rows.map(r => ({
       ...r,
       question: this._unescapeAiNewlines(r.question || ''),
       answer: this._unescapeAiNewlines(r.answer || ''),
       marks: this._unescapeAiNewlines(r.marks || ''),
       guidance: this._unescapeAiNewlines(r.guidance || '')
     }));
+    if (normalized.length === 0) return normalized;
+
+    const last = normalized[normalized.length - 1];
+    const hasTotalRow =
+      !String(last.question || '').trim() &&
+      !String(last.answer || '').trim() &&
+      !String(last.guidance || '').trim() &&
+      /^\d+$/.test(String(last.marks || '').trim());
+
+    if (!hasTotalRow) {
+      let total = 0;
+      const parsedExpected = parseInt(String(expectedTotalMarks || '').trim(), 10);
+      if (!isNaN(parsedExpected) && parsedExpected > 0) {
+        total = parsedExpected;
+      } else {
+        normalized.forEach(r => {
+          const mText = String(r.marks || '');
+          const matches = mText.match(/[BMA]\s*(\d+)/gi);
+          if (matches) {
+            matches.forEach(token => {
+              const num = parseInt(token.replace(/^[BMA]\s*/i, ''), 10);
+              if (!isNaN(num)) total += num;
+            });
+          }
+        });
+      }
+      if (total > 0) {
+        normalized.push({
+          question: '',
+          answer: '',
+          marks: String(total),
+          guidance: ''
+        });
+      }
+    }
+    return normalized;
   }
 
   /**
@@ -743,7 +779,7 @@ OUTPUT FORMAT (return ONLY a valid JSON object matching this exact structure, no
 
     if (result.stem) result.stem = this._unescapeAiNewlines(result.stem);
     if (Array.isArray(result.mcqSolutionRows)) {
-      result.mcqSolutionRows = this._normalizeSolutionRows(result.mcqSolutionRows);
+      result.mcqSolutionRows = this._normalizeSolutionRows(result.mcqSolutionRows, result.stemMarks);
     }
 
     if (result.questionType === 'multiple_choice') return result;
@@ -766,7 +802,7 @@ OUTPUT FORMAT (return ONLY a valid JSON object matching this exact structure, no
         p.marks = stripped.marks;
         p.afterText = p.afterText ? this._unescapeAiNewlines(p.afterText).trim() : '';
         if (Array.isArray(p.solutionRows)) {
-          p.solutionRows = this._normalizeSolutionRows(p.solutionRows);
+          p.solutionRows = this._normalizeSolutionRows(p.solutionRows, p.marks);
         }
       });
       return result;
@@ -990,6 +1026,7 @@ RULES:
    - \`answer\`: exact LaTeX steps / final answer.
    - \`marks\`: exact mark code like "B1", "M1", "A1", "B1 FT", "SC B1".
    - \`guidance\`: exact examiner guidance notes (or "").
+   - ALWAYS include a final total-marks row at the end of each part's \`solutionRows\` (and \`mcqSolutionRows\`) with ONLY the integer total in \`marks\` and empty strings for the other 3 columns: \`{ "question": "", "answer": "", "marks": "3", "guidance": "" }\`.
 3. ${hasSubParts
       ? `Output \`parts\`: an array matching the existing sub-part labels (${partLabels.join(', ')}), each with \`label\` and \`solutionRows\`. Leave \`mcqSolutionRows\` empty.`
       : `Output all rows in \`mcqSolutionRows\`. Leave \`parts\` empty.${questionType === 'multiple_choice' ? ' Also set \`correctOptions\` (e.g. ["B"]) if the answer key letter is shown.' : ''}`
