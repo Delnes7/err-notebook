@@ -1,0 +1,322 @@
+/**
+ * db.js - IndexedDB 本地持久化存储层
+ * 支持大规模错题数据、图片附件、考试记录与学科管理
+ */
+
+const DB_NAME = 'ErrorNotebookDB';
+const DB_VERSION = 1;
+
+class NotebookDB {
+  constructor() {
+    this.db = null;
+    this.isReady = false;
+    this.readyPromise = this.init();
+  }
+
+  init() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+
+        // 学科存储表
+        if (!db.objectStoreNames.contains('subjects')) {
+          const subjectStore = db.createObjectStore('subjects', { keyPath: 'id' });
+          subjectStore.createIndex('order', 'order', { unique: false });
+        }
+
+        // 考试场次与成绩存储表
+        if (!db.objectStoreNames.contains('exams')) {
+          const examStore = db.createObjectStore('exams', { keyPath: 'id' });
+          examStore.createIndex('date', 'date', { unique: false });
+        }
+
+        // 错题主表
+        if (!db.objectStoreNames.contains('questions')) {
+          const questionStore = db.createObjectStore('questions', { keyPath: 'id' });
+          questionStore.createIndex('subjectId', 'subjectId', { unique: false });
+          questionStore.createIndex('examId', 'examId', { unique: false });
+          questionStore.createIndex('mastery', 'mastery', { unique: false });
+          questionStore.createIndex('createdAt', 'createdAt', { unique: false });
+        }
+
+        // 系统设置表
+        if (!db.objectStoreNames.contains('settings')) {
+          db.createObjectStore('settings', { keyPath: 'key' });
+        }
+      };
+
+      request.onsuccess = (event) => {
+        this.db = event.target.result;
+        this.isReady = true;
+        resolve(this.db);
+      };
+
+      request.onerror = (event) => {
+        console.error('IndexedDB open error:', event.target.error);
+        reject(event.target.error);
+      };
+    });
+  }
+
+  async ready() {
+    if (!this.isReady) {
+      await this.readyPromise;
+    }
+    return this.db;
+  }
+
+  // 通用事务操作
+  async getStore(storeName, mode = 'readonly') {
+    const db = await this.ready();
+    const transaction = db.transaction(storeName, mode);
+    return transaction.objectStore(storeName);
+  }
+
+  // --- 学科相关操作 ---
+  async getAllSubjects() {
+    const store = await this.getStore('subjects', 'readonly');
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async saveSubject(subject) {
+    const store = await this.getStore('subjects', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.put(subject);
+      request.onsuccess = () => resolve(subject);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async deleteSubject(id) {
+    const store = await this.getStore('subjects', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  // --- 考试记录相关操作 ---
+  async getAllExams() {
+    const store = await this.getStore('exams', 'readonly');
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const exams = request.result || [];
+        // 按日期倒序排
+        exams.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+        resolve(exams);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async getExamById(id) {
+    const store = await this.getStore('exams', 'readonly');
+    return new Promise((resolve, reject) => {
+      const request = store.get(id);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async saveExam(exam) {
+    const store = await this.getStore('exams', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.put(exam);
+      request.onsuccess = () => resolve(exam);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async deleteExam(id) {
+    const store = await this.getStore('exams', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  // --- 错题相关操作 ---
+  async getAllQuestions() {
+    const store = await this.getStore('questions', 'readonly');
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const questions = request.result || [];
+        questions.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        resolve(questions);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async getQuestionById(id) {
+    const store = await this.getStore('questions', 'readonly');
+    return new Promise((resolve, reject) => {
+      const request = store.get(id);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async saveQuestion(question) {
+    const store = await this.getStore('questions', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.put(question);
+      request.onsuccess = () => resolve(question);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async deleteQuestion(id) {
+    const store = await this.getStore('questions', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async updateQuestionMastery(id, mastery) {
+    const q = await this.getQuestionById(id);
+    if (!q) return null;
+    q.mastery = mastery;
+    q.updatedAt = new Date().toISOString();
+    return this.saveQuestion(q);
+  }
+
+  // --- 设置项 ---
+  async getSetting(key, defaultValue = null) {
+    const store = await this.getStore('settings', 'readonly');
+    return new Promise((resolve) => {
+      const request = store.get(key);
+      request.onsuccess = () => {
+        if (request.result && request.result.value !== undefined) {
+          resolve(request.result.value);
+        } else {
+          resolve(defaultValue);
+        }
+      };
+      request.onerror = () => resolve(defaultValue);
+    });
+  }
+
+  async setSetting(key, value) {
+    const store = await this.getStore('settings', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.put({ key, value });
+      request.onsuccess = () => resolve(value);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  // --- 考核项目与权重配置 / 自评得分 ---
+  async getAssessmentConfigs() {
+    return await this.getSetting('subject_assessment_configs', {});
+  }
+
+  async saveAssessmentConfigs(configs) {
+    return await this.setSetting('subject_assessment_configs', configs);
+  }
+
+  async getCategoryScores() {
+    return await this.getSetting('subject_category_scores', {});
+  }
+
+  async saveCategoryScores(scores) {
+    return await this.setSetting('subject_category_scores', scores);
+  }
+
+  // --- 数据全量导出与导入 ---
+  async exportAllData() {
+    const subjects = await this.getAllSubjects();
+    const exams = await this.getAllExams();
+    const questions = await this.getAllQuestions();
+    const assessmentConfigs = await this.getAssessmentConfigs();
+    const categoryScores = await this.getCategoryScores();
+    return {
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      appName: 'ErrorNotebook',
+      data: {
+        subjects,
+        exams,
+        questions,
+        assessmentConfigs,
+        categoryScores
+      }
+    };
+  }
+
+  async importData(importedPayload, mode = 'merge') {
+    if (!importedPayload || !importedPayload.data) {
+      throw new Error('导入文件格式不正确，缺少数据主体');
+    }
+    const { subjects = [], exams = [], questions = [], assessmentConfigs = null, categoryScores = null } = importedPayload.data;
+
+    if (mode === 'overwrite') {
+      await this.clearAllData();
+    }
+
+    // 导入学科
+    for (const sub of subjects) {
+      await this.saveSubject(sub);
+    }
+    // 导入考试
+    for (const ex of exams) {
+      await this.saveExam(ex);
+    }
+    // 导入错题
+    for (const q of questions) {
+      await this.saveQuestion(q);
+    }
+    if (assessmentConfigs) {
+      await this.saveAssessmentConfigs(assessmentConfigs);
+    }
+    if (categoryScores) {
+      await this.saveCategoryScores(categoryScores);
+    }
+
+    return {
+      importedSubjects: subjects.length,
+      importedExams: exams.length,
+      importedQuestions: questions.length
+    };
+  }
+
+  async clearQuestionsAndExams() {
+    const stores = ['exams', 'questions'];
+    for (const storeName of stores) {
+      const store = await this.getStore(storeName, 'readwrite');
+      await new Promise((resolve, reject) => {
+        const req = store.clear();
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
+  }
+
+  async clearAllData() {
+    const stores = ['subjects', 'exams', 'questions'];
+    for (const storeName of stores) {
+      const store = await this.getStore(storeName, 'readwrite');
+      await new Promise((resolve, reject) => {
+        const req = store.clear();
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
+  }
+}
+
+// 导出全局单例
+window.db = new NotebookDB();
+

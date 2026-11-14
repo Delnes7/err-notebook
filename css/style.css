@@ -1,0 +1,429 @@
+/* 
+ * style.css - 错题本核心样式与打印排版引擎
+ */
+
+:root {
+  --color-primary: #4f46e5;
+  --color-primary-hover: #4338ca;
+}
+
+/* 全局按钮禁止文字折行与纵向叠字 */
+button, .btn {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  flex-shrink: 0;
+}
+
+/* 顶部导航防挤压美化 */
+#top-nav nav {
+  min-width: 0;
+}
+#top-nav nav button {
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+/* 页面平滑过渡 */
+html {
+  scroll-behavior: smooth;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+/* 自定义极简滚动条 */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.7);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.5);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.8);
+}
+
+/* KaTeX 渲染优化 */
+.katex-display {
+  margin: 0.75em 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25em 0;
+}
+.katex {
+  font-size: 1.08em;
+  text-rendering: auto;
+}
+
+/* Markdown 内容区富文本美化 */
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  letter-spacing: -0.015em;
+}
+.markdown-body p {
+  margin-bottom: 0.75rem;
+}
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* Markdown 代码块与语法高亮排版 */
+.markdown-body pre {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  font-size: 0.82rem !important;
+  line-height: 1.65 !important;
+}
+
+.markdown-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+}
+
+/* 语法高亮 Token 配色体系 (支持代码与数学语言) */
+.token.comment, .token.prolog, .token.doctype, .token.cdata {
+  color: #94a3b8 !important;
+  font-style: italic;
+}
+.token.punctuation {
+  color: #cbd5e1 !important;
+}
+.token.property, .token.tag, .token.boolean, .token.number, .token.constant, .token.symbol {
+  color: #f59e0b !important;
+}
+.token.selector, .token.attr-name, .token.string, .token.char, .token.builtin {
+  color: #10b981 !important;
+}
+.token.operator, .token.entity, .token.url {
+  color: #38bdf8 !important;
+}
+.token.atrule, .token.attr-value, .token.keyword {
+  color: #a855f7 !important;
+  font-weight: 600;
+}
+.token.function, .token.class-name {
+  color: #3b82f6 !important;
+  font-weight: 600;
+}
+.token.regex, .token.important, .token.variable {
+  color: #ec4899 !important;
+}
+
+/* 动效与阴影 */
+.card-hover {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+}
+
+/* 折叠卡片箭头平滑翻转 */
+.chevron-rotate {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+.chevron-rotate.collapsed {
+  transform: rotate(0deg);
+}
+.chevron-rotate.expanded {
+  transform: rotate(180deg);
+}
+
+/* CAIE / Edexcel 官方 Mark Scheme 评分标准表格 (高保真四列表格) */
+.mark-scheme-table {
+  width: 100% !important;
+  border: 1.5px solid #0f172a !important;
+  border-collapse: collapse !important;
+  margin: 10px 0 !important;
+  font-size: 0.9em !important;
+}
+.mark-scheme-table th,
+.mark-scheme-table td {
+  border: 1px solid #0f172a !important;
+  padding: 6px 8px !important;
+  vertical-align: top !important;
+}
+.mark-scheme-table th {
+  background-color: #f8fafc !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  color: #0f172a !important;
+}
+.dark .mark-scheme-table {
+  border-color: #94a3b8 !important;
+}
+.dark .mark-scheme-table th,
+.dark .mark-scheme-table td {
+  border-color: #94a3b8 !important;
+}
+.dark .mark-scheme-table th {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+}
+
+/* 错题展示多档字号调节 */
+.q-font-normal .question-part-text,
+.q-font-normal .question-stem-text,
+.q-font-normal .question-content-text,
+.q-font-normal .question-solution-text {
+  font-size: 0.935rem !important; /* ~15px */
+  line-height: 1.65 !important;
+}
+.q-font-normal .question-part-text .katex,
+.q-font-normal .question-stem-text .katex,
+.q-font-normal .question-content-text .katex,
+.q-font-normal .question-solution-text .katex {
+  font-size: 1.05em !important;
+}
+
+.q-font-medium .question-part-text,
+.q-font-medium .question-stem-text,
+.q-font-medium .question-content-text,
+.q-font-medium .question-solution-text {
+  font-size: 1.065rem !important; /* ~17px */
+  line-height: 1.75 !important;
+}
+.q-font-medium .question-part-text .katex,
+.q-font-medium .question-stem-text .katex,
+.q-font-medium .question-content-text .katex,
+.q-font-medium .question-solution-text .katex {
+  font-size: 1.12em !important;
+}
+
+.q-font-large .question-part-text,
+.q-font-large .question-stem-text,
+.q-font-large .question-content-text,
+.q-font-large .question-solution-text {
+  font-size: 1.2rem !important; /* ~19.2px */
+  line-height: 1.85 !important;
+}
+.q-font-large .question-part-text .katex,
+.q-font-large .question-stem-text .katex,
+.q-font-large .question-content-text .katex,
+.q-font-large .question-solution-text .katex {
+  font-size: 1.18em !important;
+}
+
+/* 试卷字号规则 */
+.paper-font-small, .paper-font-small .markdown-body {
+  font-size: 9.5pt !important;
+  line-height: 1.45 !important;
+}
+.paper-font-medium, .paper-font-medium .markdown-body {
+  font-size: 10.5pt !important;
+  line-height: 1.55 !important;
+}
+.paper-font-large, .paper-font-large .markdown-body {
+  font-size: 12pt !important;
+  line-height: 1.65 !important;
+}
+
+/* 打印与试卷重练专属排版引擎 */
+@media print {
+  /* 隐藏非打印界面元素 */
+  nav,
+  header,
+  .no-print,
+  #top-nav,
+  #action-bar,
+  #filter-panel,
+  #modal-backdrop,
+  .toast-container {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-size: 10.5pt !important;
+    line-height: 1.55 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body.paper-font-small {
+    font-size: 9.5pt !important;
+    line-height: 1.45 !important;
+  }
+  body.paper-font-medium {
+    font-size: 10.5pt !important;
+    line-height: 1.55 !important;
+  }
+  body.paper-font-large {
+    font-size: 12pt !important;
+    line-height: 1.65 !important;
+  }
+
+  #app-content {
+    display: none !important;
+  }
+
+  #print-container {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #print-container > div {
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    max-width: 100% !important;
+  }
+
+  .print-page-break {
+    page-break-before: always;
+    break-before: always;
+  }
+
+  .print-avoid-break {
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+
+  .print-question-header {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* 试卷纸张边距 */
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
+  }
+
+  /* 试卷答题区域 */
+  .practice-write-area {
+    border: 1px dashed #cbd5e1 !important;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 23px,
+      #f1f5f9 24px
+    ) !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .mark-scheme-table {
+    border: 1.5px solid #000000 !important;
+    page-break-inside: auto !important;
+  }
+  .mark-scheme-table th,
+  .mark-scheme-table td {
+    border: 1px solid #000000 !important;
+    color: #000000 !important;
+  }
+  .mark-scheme-table th {
+    background-color: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* 正常屏幕下隐藏打印容器 */
+@media screen {
+  #print-container {
+    display: none;
+  }
+}
+
+/* =========================================================
+   iPad & 手机端响应式与触控适配
+   ========================================================= */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+body {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+#top-nav {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+#mobile-nav-items {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+#mobile-nav-items::-webkit-scrollbar {
+  display: none;
+}
+
+.markdown-body {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+}
+
+@media screen and (max-width: 1024px) {
+  .mark-scheme-table {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 0.85em !important;
+  }
+
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media screen and (max-width: 640px) {
+  /* 小屏下允许正文区域较长的中文操作按钮安全换行，避免撑爆卡片 */
+  main button,
+  main .btn {
+    white-space: normal !important;
+    word-break: break-word !important;
+    max-width: 100%;
+  }
+
+  /* 保留编辑器与弹窗工具条触控体验 */
+  .q-font-normal .question-part-text,
+  .q-font-normal .question-stem-text,
+  .q-font-normal .question-content-text,
+  .q-font-normal .question-solution-text {
+    font-size: 0.9rem !important;
+  }
+}
+
+/* 防止 iOS / iPadOS Safari 聚焦小于 16px 输入框时自动放大页面 */
+@supports (-webkit-touch-callout: none) {
+  @media screen and (max-width: 768px) {
+    input[type="text"],
+    input[type="password"],
+    input[type="search"],
+    input[type="number"],
+    input[type="url"],
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+}
+
+
+

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>个人工作台</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- KaTeX 数学公式渲染引擎 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
+
+  <!-- Chart.js 交互式图表可视化引擎 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <!-- Prism.js 代码与语法高亮 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+
+  <!-- iPhone HEIC/HEIF 照片转码支持 (现代 libheif，兼容新款 iPhone HEIC) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/heic-to/dist/iife/heic-to.js"></script>
+
+  <!-- 本地样式与打印排版规范 -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col overflow-x-hidden transition-colors duration-200">
+
+  <!-- 顶部导航栏 -->
+  <header id="top-nav" class="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-xs">
+    <div class="max-w-[1560px] mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
+      <!-- 品牌 Logo -->
+      <div class="flex items-center gap-2.5 sm:gap-3 cursor-pointer shrink-0" onclick="app.switchTab('questions')">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-black text-lg sm:text-xl shadow-md shadow-indigo-500/25 shrink-0">
+          📖
+        </div>
+        <div>
+          <h1 class="text-sm sm:text-base font-black tracking-tight text-slate-900 dark:text-slate-100 flex items-center whitespace-nowrap">
+            <span>个人工作台</span>
+          </h1>
+        </div>
+      </div>
+
+      <!-- 桌面 / iPad 横屏核心路由导航项 -->
+      <nav id="top-nav-items" class="hidden lg:flex items-center gap-1.5 shrink-0 overflow-x-auto">
+        <!-- 由 app.renderHeader() 驱动 -->
+      </nav>
+
+      <!-- 右侧操作区：快速录入 + 主题切换 -->
+      <div class="flex items-center gap-2 sm:gap-2.5 shrink-0 whitespace-nowrap">
+        <button onclick="app.resetEditorForm(); app.switchTab('add')" class="whitespace-nowrap shrink-0 flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-500/30 transition transform hover:scale-102">
+          <span>➕</span>
+          <span class="hidden sm:inline">录入错题</span>
+        </button>
+
+        <!-- 深浅色主题切换 -->
+        <button id="theme-toggle-btn" onclick="app.toggleTheme()" title="切换深色/浅色外观" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center justify-center text-base sm:text-lg shrink-0">
+          <span id="theme-toggle-icon">🌙</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 手机端 & iPad 竖屏次级导航（由 app.renderHeader() 驱动高亮与计数） -->
+    <nav id="mobile-nav-items" class="lg:hidden flex items-center justify-between sm:justify-around gap-1 border-t border-slate-100 dark:border-slate-800 py-1.5 px-2 bg-white/95 dark:bg-slate-900/95 text-xs overflow-x-auto">
+      <button onclick="app.switchTab('questions')" class="px-2.5 py-1.5 rounded-lg text-center text-slate-600 dark:text-slate-400 font-medium">📚 错题</button>
+      <button onclick="app.switchTab('exams')" class="px-2.5 py-1.5 rounded-lg text-center text-slate-600 dark:text-slate-400 font-medium">📊 成绩</button>
+      <button onclick="app.switchTab('practice')" class="px-2.5 py-1.5 rounded-lg text-center text-slate-600 dark:text-slate-400 font-medium">📑 组卷</button>
+      <button onclick="app.switchTab('subjects')" class="px-2.5 py-1.5 rounded-lg text-center text-slate-600 dark:text-slate-400 font-medium">🏷️ 学科</button>
+      <button onclick="app.switchTab('settings')" class="px-2.5 py-1.5 rounded-lg text-center text-slate-600 dark:text-slate-400 font-medium">⚙️ 备份</button>
+    </nav>
+  </header>
+
+  <!-- 页面主体容器 -->
+  <main id="app-content" class="flex-1 max-w-[1560px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+    <div id="main-content">
+      <!-- 动态路由渲染区 -->
+      <div class="flex items-center justify-center py-20 text-slate-400 text-sm">
+        <span class="animate-pulse">正在载入错题本系统...</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- 专属打印输出容器 (仅在 window.print() 时呈现，屏幕下隐藏) -->
+  <div id="print-container"></div>
+
+  <!-- 图片全屏查看模态框 -->
+  <div id="image-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer" onclick="this.classList.add('hidden')">
+    <img id="image-modal-img" src="" alt="预览大图" class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl object-contain" />
+  </div>
+
+  <!-- 全局 Toast 提示容器 -->
+  <div id="toast-container" class="toast-container fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-6 sm:right-6 z-50 flex flex-col items-stretch sm:items-end gap-2 pointer-events-none"></div>
+
+  <!-- 引入业务核心脚本 -->
+  <script src="js/db.js"></script>
+  <script src="js/markdown.js"></script>
+  <script src="js/sample-data.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/print.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/app.js"></script>
+
+  <!-- 全局图片大图查看支持 -->
+  <script>
+    window.previewImage = function(url) {
+      const modal = document.getElementById('image-modal');
+      const img = document.getElementById('image-modal-img');
+      if (modal && img) {
+        img.src = url;
+        modal.classList.remove('hidden');
+      }
+    };
+  </script>
+</body>
+</html>
+
