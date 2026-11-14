@@ -50,10 +50,24 @@ class NotebookDB {
       request.onsuccess = (event) => {
         this.db = event.target.result;
         this.isReady = true;
+        // iOS/iPadOS Safari 切后台或锁屏时会主动关闭 IndexedDB 连接，监听后自动置空以便下次重连
+        this.db.onclose = () => {
+          this.db = null;
+          this.isReady = false;
+          this.readyPromise = null;
+        };
+        this.db.onversionchange = () => {
+          try { this.db && this.db.close(); } catch (_) {}
+          this.db = null;
+          this.isReady = false;
+          this.readyPromise = null;
+        };
         resolve(this.db);
       };
 
       request.onerror = (event) => {
+        this.isReady = false;
+        this.readyPromise = null;
         console.error('IndexedDB open error:', event.target.error);
         reject(event.target.error);
       };
@@ -61,17 +75,29 @@ class NotebookDB {
   }
 
   async ready() {
-    if (!this.isReady) {
+    if (!this.isReady || !this.db) {
+      if (!this.readyPromise) {
+        this.readyPromise = this.init();
+      }
       await this.readyPromise;
     }
     return this.db;
   }
 
-  // 通用事务操作
+  // 通用事务操作（兼容 iOS Safari 连接被关闭后自动重连重试）
   async getStore(storeName, mode = 'readonly') {
-    const db = await this.ready();
-    const transaction = db.transaction(storeName, mode);
-    return transaction.objectStore(storeName);
+    let db = await this.ready();
+    try {
+      const transaction = db.transaction(storeName, mode);
+      return transaction.objectStore(storeName);
+    } catch (err) {
+      this.db = null;
+      this.isReady = false;
+      this.readyPromise = null;
+      db = await this.ready();
+      const transaction = db.transaction(storeName, mode);
+      return transaction.objectStore(storeName);
+    }
   }
 
   // --- 学科相关操作 ---
