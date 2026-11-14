@@ -9,7 +9,8 @@ class CloudSyncManager {
     this.storageKeys = {
       url: 'supabase_project_url',
       key: 'supabase_publishable_key',
-      lastSyncedAt: 'supabase_last_synced_at'
+      lastSyncedAt: 'supabase_last_synced_at',
+      cloudEpoch: 'supabase_cloud_epoch'
     };
 
     this.client = null;
@@ -236,8 +237,22 @@ class CloudSyncManager {
         if (delErr) throw delErr;
       }
       const rows = await this._collectLocalRows();
+      const newEpoch = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      if (replaceCloud || !localStorage.getItem(this.storageKeys.cloudEpoch)) {
+        rows.push({
+          user_id: this.user.id,
+          item_type: 'meta',
+          item_id: 'cloud_epoch',
+          data: { epoch: newEpoch },
+          updated_at: new Date().toISOString(),
+          deleted: false
+        });
+      }
       await this._upsertBatch(rows);
 
+      if (replaceCloud || !localStorage.getItem(this.storageKeys.cloudEpoch)) {
+        localStorage.setItem(this.storageKeys.cloudEpoch, newEpoch);
+      }
       this.lastSyncedAt = new Date().toISOString();
       localStorage.setItem(this.storageKeys.lastSyncedAt, this.lastSyncedAt);
       this.syncStatus = 'synced';
@@ -266,14 +281,54 @@ class CloudSyncManager {
         .eq('user_id', this.user.id);
       if (error) throw error;
 
-      // 云端为空（例如首次从存有错题的 Mac 登录）：自动将本地全量上传至云端
+      // 云端为空（例如首次从存有错题的 Mac 登录）：自动将本地全量上传至云端并建立 epoch
       if (!cloudRows || cloudRows.length === 0) {
         const rows = await this._collectLocalRows();
+        const newEpoch = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        rows.push({
+          user_id: this.user.id,
+          item_type: 'meta',
+          item_id: 'cloud_epoch',
+          data: { epoch: newEpoch },
+          updated_at: new Date().toISOString(),
+          deleted: false
+        });
         await this._upsertBatch(rows);
+        localStorage.setItem(this.storageKeys.cloudEpoch, newEpoch);
         this.lastSyncedAt = new Date().toISOString();
         localStorage.setItem(this.storageKeys.lastSyncedAt, this.lastSyncedAt);
         this.syncStatus = 'synced';
         return { pulled: 0, pushed: rows.length };
+      }
+
+      // 若云端存在新的覆盖纪元（主设备执行过「用本机数据覆盖云端」或首次在新设备登录），清空本地旧/脏数据并以云端为准，绝不把脏数据反推回云端
+      const epochRow = cloudRows.find(r => r.item_type === 'meta' && r.item_id === 'cloud_epoch' && !r.deleted);
+      const cloudEpoch = epochRow && epochRow.data ? String(epochRow.data.epoch || '') : '';
+      const localEpoch = localStorage.getItem(this.storageKeys.cloudEpoch) || '';
+      if (cloudEpoch && cloudEpoch !== localEpoch) {
+        await window.db.clearAllData();
+        let resetPulled = 0;
+        for (const row of cloudRows) {
+          if (row.deleted) continue;
+          if (row.item_type === 'meta') {
+            if (row.item_id === 'subject_assessment_configs') {
+              await window.db.saveAssessmentConfigs(row.data || {}, true);
+            } else if (row.item_id === 'subject_category_scores') {
+              await window.db.saveCategoryScores(row.data || {}, true);
+            }
+            continue;
+          }
+          const itemData = { ...(row.data || {}), id: row.item_id };
+          if (row.item_type === 'subject') await window.db.saveSubject(itemData, true);
+          else if (row.item_type === 'exam') await window.db.saveExam(itemData, true);
+          else if (row.item_type === 'question') await window.db.saveQuestion(itemData, true);
+          resetPulled++;
+        }
+        localStorage.setItem(this.storageKeys.cloudEpoch, cloudEpoch);
+        this.lastSyncedAt = new Date().toISOString();
+        localStorage.setItem(this.storageKeys.lastSyncedAt, this.lastSyncedAt);
+        this.syncStatus = 'synced';
+        return { pulled: resetPulled, pushed: 0, resetLocal: true };
       }
 
       const [localSubs, localExams, localQuestions] = await Promise.all([
@@ -295,6 +350,7 @@ class CloudSyncManager {
 
       // 1. 云端 -> 本地
       for (const row of cloudRows) {
+        if (row.item_type === 'meta' && row.item_id === 'cloud_epoch') continue;
         const key = `${row.item_type}:${row.item_id}`;
         const localItem = localMap.get(key);
         const cloudTime = new Date(row.updated_at || 0).getTime();
@@ -367,6 +423,58 @@ class CloudSyncManager {
       console.error('Supabase syncNow failed:', err);
       this.syncStatus = 'error';
       this.lastError = err.message || '云同步失败';
+      throw err;
+    } finally {
+      this.isSyncing = false;
+      this._notify();
+    }
+  }
+
+  async pullOverwriteLocal() {
+    if (!this.isLoggedIn()) throw new Error('请先登录云同步账号');
+    this.isSyncing = true;
+    this.syncStatus = 'syncing';
+    this.lastError = '';
+    this._notify();
+
+    try {
+      const { data: cloudRows, error } = await this.client
+        .from('notebook_items')
+        .select('item_type, item_id, data, updated_at, deleted')
+        .eq('user_id', this.user.id);
+      if (error) throw error;
+
+      await window.db.clearAllData();
+      let pulled = 0;
+      let cloudEpoch = '';
+      for (const row of (cloudRows || [])) {
+        if (row.deleted) continue;
+        if (row.item_type === 'meta') {
+          if (row.item_id === 'cloud_epoch' && row.data && row.data.epoch) {
+            cloudEpoch = String(row.data.epoch);
+          } else if (row.item_id === 'subject_assessment_configs') {
+            await window.db.saveAssessmentConfigs(row.data || {}, true);
+          } else if (row.item_id === 'subject_category_scores') {
+            await window.db.saveCategoryScores(row.data || {}, true);
+          }
+          continue;
+        }
+        const itemData = { ...(row.data || {}), id: row.item_id };
+        if (row.item_type === 'subject') await window.db.saveSubject(itemData, true);
+        else if (row.item_type === 'exam') await window.db.saveExam(itemData, true);
+        else if (row.item_type === 'question') await window.db.saveQuestion(itemData, true);
+        pulled++;
+      }
+      if (cloudEpoch) {
+        localStorage.setItem(this.storageKeys.cloudEpoch, cloudEpoch);
+      }
+      this.lastSyncedAt = new Date().toISOString();
+      localStorage.setItem(this.storageKeys.lastSyncedAt, this.lastSyncedAt);
+      this.syncStatus = 'synced';
+      return { pulled };
+    } catch (err) {
+      this.syncStatus = 'error';
+      this.lastError = err.message || '从云端覆盖本机失败';
       throw err;
     } finally {
       this.isSyncing = false;

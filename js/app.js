@@ -6766,13 +6766,25 @@ class App {
   }
 
   async cloudPushOverwrite() {
-    if (!confirm('确定要用当前设备的本地数据完全覆盖云端数据吗？（其他设备同步后也会变成当前设备的内容）')) return;
+    if (!confirm('确定要用当前设备的本地数据完全覆盖云端数据吗？（其他设备下次同步时会自动清空旧数据并拉取本机版本）')) return;
     try {
       const res = await window.cloudSync.pushAllLocalToCloud(true);
       this.render();
       this.showToast(`✅ 已将本机 ${res.uploaded} 条数据覆盖上传至云端！`, 'success');
     } catch (err) {
       this.showToast(`上传失败：${err.message}`, 'error');
+    }
+  }
+
+  async cloudPullOverwrite() {
+    if (!confirm('确定要用云端数据完全覆盖本机数据吗？本机尚未同步的修改将会被清空。')) return;
+    try {
+      const res = await window.cloudSync.pullOverwriteLocal();
+      await this.refreshData();
+      this.render();
+      this.showToast(`✅ 已用云端 ${res.pulled} 条数据覆盖本机！`, 'success');
+    } catch (err) {
+      this.showToast(`拉取失败：${err.message}`, 'error');
     }
   }
 
@@ -6818,6 +6830,9 @@ class App {
                 </button>
                 <button type="button" onclick="app.cloudPushOverwrite()" class="px-4 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
                   ⬆️ 用本机数据覆盖云端
+                </button>
+                <button type="button" onclick="app.cloudPullOverwrite()" class="px-4 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                  ⬇️ 用云端数据覆盖本机
                 </button>
                 <button type="button" onclick="app.cloudSignOut()" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
                   退出登录
