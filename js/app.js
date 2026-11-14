@@ -670,7 +670,8 @@ class App {
       const partsMd = parts.map(p => {
         const marksStr = p.marks ? ` *[${p.marks}]*` : '';
         const wrongBadge = p.isWrong ? ' ⚠️ `[错题重点突破]`' : '';
-        return `**${p.label || '(a)'}**${marksStr}${wrongBadge}\n${p.text || ''}`;
+        const afterBlock = (p.afterText && p.afterText.trim()) ? `\n\n${p.afterText.trim()}` : '';
+        return `**${p.label || '(a)'}**${marksStr}${wrongBadge}\n${p.text || ''}${afterBlock}`;
       }).join('\n\n');
 
       const stemWithMarks = (stem && parts.length === 0 && this.form.stemMarks)
@@ -1424,6 +1425,7 @@ class App {
       marks: '3',
       isWrong: true,
       text: '',
+      afterText: '',
       solutionMode: 'mark_scheme_table',
       solutionRows: [
         { question: nextLabel, answer: '', marks: 'B1', guidance: '' }
@@ -1456,6 +1458,23 @@ class App {
     if (!this.form.parts || !this.form.parts[idx]) return;
     this.form.parts[idx][field] = value;
     this.compileQuestionContent();
+  }
+
+  togglePartAfterText(idx, show = true) {
+    if (!this.form.parts || !this.form.parts[idx]) return;
+    if (show) {
+      this.form.parts[idx]._showAfterText = true;
+      this.render();
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`part-after-${idx}`);
+        if (el) el.focus();
+      });
+    } else {
+      this.form.parts[idx].afterText = '';
+      this.form.parts[idx]._showAfterText = false;
+      this.compileQuestionContent();
+      this.render();
+    }
   }
 
   async saveCurrentQuestion() {
@@ -3055,6 +3074,11 @@ class App {
                 ${window.markdownRenderer.render(p.text || '*无独立小问题干*')}
               </div>
             </div>
+            ${(p.afterText && p.afterText.trim()) ? `
+              <div class="my-2 px-3.5 py-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/50 border-l-4 border-indigo-400 dark:border-indigo-500 text-slate-700 dark:text-slate-300 text-sm leading-relaxed markdown-body">
+                ${window.markdownRenderer.render(p.afterText)}
+              </div>
+            ` : ''}
           `).join('');
 
           questionBodyHtml = `${stemHtml}${partsHtml}`;
@@ -3396,6 +3420,26 @@ class App {
             </div>
           </div>
         </div>
+        ${(part._showAfterText || (part.afterText && part.afterText.trim())) ? `
+          <div class="ml-3 pl-3 border-l-2 border-indigo-300 dark:border-indigo-700 py-1.5 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                <span>📝</span>
+                <span>${part.label || '(a)'} 之后的问间过渡文字 / 补充条件</span>
+              </label>
+              <button type="button" onclick="app.togglePartAfterText(${idx}, false)" class="text-[11px] text-slate-400 hover:text-rose-500 font-medium cursor-pointer">
+                ✕ 移除此过渡文字
+              </button>
+            </div>
+            <textarea id="part-after-${idx}" oninput="app.updatePartField(${idx}, 'afterText', this.value)" rows="2" class="w-full p-2.5 border border-indigo-200 dark:border-indigo-800/70 rounded-lg text-xs font-mono bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-indigo-500 resize-y" placeholder="如：The median and interquartile range for the Panthers are 103 minutes and 14 minutes respectively.">${part.afterText || ''}</textarea>
+          </div>
+        ` : `
+          <div class="flex justify-center">
+            <button type="button" onclick="app.togglePartAfterText(${idx}, true)" class="px-3 py-1 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-700 transition cursor-pointer">
+              + 在 ${part.label || '(a)'} 后添加问间过渡文字 / 补充条件
+            </button>
+          </div>
+        `}
       `;
     }).join('');
 
@@ -6353,6 +6397,8 @@ class App {
             marks: p.marks !== undefined ? String(p.marks) : '',
             isWrong: rawParts.length === 1, // 若只有一个小问默认标错；多小问由用户点选错在哪问
             text,
+            afterText: p.afterText || '',
+            _showAfterText: !!(p.afterText && p.afterText.trim()),
             solutionMode: rows.length > 0 ? 'mark_scheme_table' : 'none',
             solutionRows: rows.length > 0
               ? rows.map((r, rIdx) => ({

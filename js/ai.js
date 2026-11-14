@@ -467,6 +467,7 @@ class GeminiAIHelper {
               label: { type: 'STRING' },
               marks: { type: 'STRING' },
               text: { type: 'STRING' },
+              afterText: { type: 'STRING' },
               hasFigure: { type: 'BOOLEAN' },
               solutionRows: {
                 type: 'ARRAY',
@@ -533,6 +534,7 @@ CRITICAL FORMATTING RULES:
        - \`label\`: e.g. \`"(a)"\`, \`"(b)"\`, \`"(a)(i)"\`
        - \`marks\`: numeric mark count as string e.g. \`"3"\`, or \`""\` if not shown
        - \`text\`: the sub-part prompt text in Markdown/LaTeX. Do NOT include blank dotted answer lines (\`......\`) or trailing mark brackets like \`[3]\`.
+       - \`afterText\`: any transitional/context text that appears AFTER this sub-part and BEFORE the next sub-part (e.g. "The median and interquartile range for the Panthers are 103 minutes and 14 minutes respectively." between (a) and (b)). Return \`""\` if none.
        - \`hasFigure\`: \`true\` if that sub-part (or diagram right inside it) contains a visual figure/tree diagram/circuit/graph/chart that needs cropping from the original photo.
 
 5. **Mark Scheme / Solution Parsing**:
@@ -762,6 +764,7 @@ OUTPUT FORMAT (return ONLY a valid JSON object matching this exact structure, no
         const stripped = stripTrailingMarks(this._unescapeAiNewlines(p.text), p.marks);
         p.text = stripped.text;
         p.marks = stripped.marks;
+        p.afterText = p.afterText ? this._unescapeAiNewlines(p.afterText).trim() : '';
         if (Array.isArray(p.solutionRows)) {
           p.solutionRows = this._normalizeSolutionRows(p.solutionRows);
         }
