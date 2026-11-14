@@ -207,7 +207,11 @@
                     const idx = item.dataIndex;
                     const e = sortedExams[idx];
                     const catName = e.categoryName || (e.category === 'skills' ? 'Course Skills' : (e.category === 'behavior' ? 'Learning Behaviour' : (e.category === 'final' ? 'Final' : 'Attainment')));
-                    return `卷面实得分：${e.score} / ${e.maxScore} 分\nTask Grade：${e.grade || '--'}\n考核维度：${catName}`;
+                    const isCurved = !!(e.isCurved || (e.curvedScore !== undefined && e.curvedScore !== null && e.curvedScore !== ''));
+                    const scoreLine = isCurved
+                      ? `Curve 后成绩：${e.percentage}% (原始：${e.score} / ${e.maxScore} 分)`
+                      : `卷面实得分：${e.score} / ${e.maxScore} 分`;
+                    return `${scoreLine}\nTask Grade：${e.grade || '--'}\n考核维度：${catName}`;
                   }
                   return null;
                 }

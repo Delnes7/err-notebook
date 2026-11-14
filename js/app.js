@@ -2034,6 +2034,7 @@ class App {
       date: new Date().toISOString().split('T')[0],
       score: '',
       maxScore: '',
+      curvedScore: '',
       isFinal: false,
       note: ''
     };
@@ -2044,19 +2045,30 @@ class App {
     const subCategories = this.getSubjectCategories(initialSub ? initialSub.id : '');
     const selectedCategory = exam.category || defaultCategory || (subCategories[0] ? subCategories[0].id : 'attainment');
 
-    // 计算初次打开时的百分比与 Grade
+    // 计算初次打开时的百分比与 Grade（若有 Curve 后成绩则优先以 Curve 后成绩为准）
     const initialScore = (exam.score !== undefined && exam.score !== '') ? parseFloat(exam.score) : null;
     const initialMax = (exam.maxScore !== undefined && exam.maxScore !== '') ? parseFloat(exam.maxScore) : null;
+    const initialCurved = (exam.curvedScore !== undefined && exam.curvedScore !== null && exam.curvedScore !== '') ? parseFloat(exam.curvedScore) : null;
+    const initialRawPct = (initialScore !== null && initialMax && initialMax > 0)
+      ? Math.round((initialScore / initialMax) * 1000) / 10
+      : null;
+    const initialEffectivePct = (initialCurved !== null && !isNaN(initialCurved))
+      ? Math.round(initialCurved * 10) / 10
+      : initialRawPct;
+
     let initialPercentText = '-- %';
+    let initialRawTipText = '';
     let initialGradeText = '--';
     let initialGradeBadgeClass = 'bg-slate-200 dark:bg-slate-700 text-slate-500';
 
-    if (initialScore !== null && initialMax && initialMax > 0) {
-      const p = Math.round((initialScore / initialMax) * 1000) / 10;
-      initialPercentText = p + '%';
-      const g = this.calculateGrade(p, initialCurriculum);
+    if (initialEffectivePct !== null) {
+      initialPercentText = initialEffectivePct + '%';
+      const g = this.calculateGrade(initialEffectivePct, initialCurriculum);
       initialGradeText = 'Grade ' + g;
       initialGradeBadgeClass = this.getGradeBadgeStyle(g);
+      if (initialCurved !== null && !isNaN(initialCurved) && initialRawPct !== null) {
+        initialRawTipText = `原始 ${initialRawPct}% → Curve`;
+      }
     }
 
     const modalHtml = `
@@ -2136,7 +2148,7 @@ class App {
                 <!-- 原始分输入 -->
                 <div class="flex items-center gap-2">
                   <div class="flex-1">
-                    <label class="block text-[11px] text-slate-500 mb-1">实得分 (Score) *</label>
+                    <label class="block text-[11px] text-slate-500 mb-1">原始分 (Raw Score) *</label>
                     <input type="number" id="modal-exam-score" value="${exam.score !== undefined ? exam.score : ''}" placeholder="如 90" step="0.5" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" oninput="app.recalcModalExamScore()" />
                   </div>
                   <span class="text-slate-400 text-lg pt-4 font-bold">/</span>
@@ -2149,8 +2161,9 @@ class App {
                 <!-- 自动计算折算结果显示卡 -->
                 <div class="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-around shadow-xs">
                   <div class="text-center">
-                    <span class="text-[10px] text-slate-400 block">折算百分比</span>
+                    <span class="text-[10px] text-slate-400 block">最终有效成绩</span>
                     <strong id="modal-exam-percent-display" class="text-lg font-black text-indigo-600 dark:text-indigo-400 font-mono">${initialPercentText}</strong>
+                    <span id="modal-exam-raw-tip" class="block text-[10px] font-medium text-violet-600 dark:text-violet-400">${initialRawTipText}</span>
                   </div>
                   <div class="h-8 w-px bg-slate-200 dark:bg-slate-700"></div>
                   <div class="text-center">
@@ -2160,6 +2173,17 @@ class App {
                     </span>
                   </div>
                 </div>
+              </div>
+
+              <!-- Curve 后成绩输入（选填） -->
+              <div class="pt-2 border-t border-slate-200/80 dark:border-slate-700/80">
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+                    📈 Curve 后成绩 (百分制 %，选填)
+                  </label>
+                  <span class="text-[10px] text-slate-400">填写后将以此成绩为准计算均分与 Grade</span>
+                </div>
+                <input type="number" id="modal-exam-curved" value="${exam.curvedScore !== undefined && exam.curvedScore !== null ? exam.curvedScore : ''}" placeholder="留空则按 Raw Score 直接折算，例如 92.5" step="0.1" min="0" max="150" class="w-full px-3 py-2 border border-violet-200 dark:border-violet-800/70 rounded-xl text-sm font-bold bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-500" oninput="app.recalcModalExamScore()" />
               </div>
             </div>
 
@@ -2205,15 +2229,24 @@ class App {
     this.recalcModalExamScore();
   }
 
-  // 实时重新计算百分比与 Grade
+  // 实时重新计算百分比与 Grade（优先使用 Curve 后成绩）
   recalcModalExamScore() {
     const scoreVal = document.getElementById('modal-exam-score').value;
     const maxVal = document.getElementById('modal-exam-max').value;
+    const curvedEl = document.getElementById('modal-exam-curved');
+    const curvedVal = curvedEl ? curvedEl.value.trim() : '';
     const percentEl = document.getElementById('modal-exam-percent-display');
+    const rawTipEl = document.getElementById('modal-exam-raw-tip');
     const gradeEl = document.getElementById('modal-exam-grade-display');
 
-    if (scoreVal === '' || maxVal === '' || parseFloat(maxVal) <= 0) {
+    const hasRaw = scoreVal !== '' && maxVal !== '' && parseFloat(maxVal) > 0;
+    const rawPct = hasRaw ? Math.round((parseFloat(scoreVal) / parseFloat(maxVal)) * 1000) / 10 : null;
+    const hasCurved = curvedVal !== '' && !isNaN(parseFloat(curvedVal));
+    const effectivePct = hasCurved ? Math.round(parseFloat(curvedVal) * 10) / 10 : rawPct;
+
+    if (effectivePct === null) {
       if (percentEl) percentEl.textContent = '-- %';
+      if (rawTipEl) rawTipEl.textContent = '';
       if (gradeEl) {
         gradeEl.textContent = '--';
         gradeEl.className = 'inline-block px-3 py-0.5 rounded-full text-xs font-black shadow-xs bg-slate-200 dark:bg-slate-700 text-slate-500';
@@ -2221,17 +2254,16 @@ class App {
       return;
     }
 
-    const score = parseFloat(scoreVal);
-    const max = parseFloat(maxVal);
-    const p = Math.round((score / max) * 1000) / 10;
-
     const subId = document.getElementById('modal-exam-subject').value;
     const sub = this.subjects.find(s => s.id === subId);
     const curriculum = sub ? (sub.curriculum || 'A Level') : 'A Level';
 
-    const grade = this.calculateGrade(p, curriculum);
+    const grade = this.calculateGrade(effectivePct, curriculum);
 
-    if (percentEl) percentEl.textContent = p + '%';
+    if (percentEl) percentEl.textContent = effectivePct + '%';
+    if (rawTipEl) {
+      rawTipEl.textContent = (hasCurved && rawPct !== null) ? `原始 ${rawPct}% → Curve` : (hasCurved ? '已启用 Curve 成绩' : '');
+    }
     if (gradeEl) {
       gradeEl.textContent = 'Grade ' + grade;
       gradeEl.className = `inline-block px-3 py-0.5 rounded-full text-xs font-black shadow-xs ${this.getGradeBadgeStyle(grade)}`;
@@ -2253,6 +2285,8 @@ class App {
     const date = document.getElementById('modal-exam-date').value;
     const scoreVal = document.getElementById('modal-exam-score').value;
     const maxVal = document.getElementById('modal-exam-max').value;
+    const curvedEl = document.getElementById('modal-exam-curved');
+    const curvedVal = curvedEl ? curvedEl.value.trim() : '';
     const note = document.getElementById('modal-exam-note').value.trim();
     const isFinal = category.toLowerCase().includes('final');
 
@@ -2260,14 +2294,18 @@ class App {
       this.showToast('请输入项目/测验名称！', 'warning');
       return;
     }
-    if (scoreVal === '' || maxVal === '' || parseFloat(maxVal) <= 0) {
-      this.showToast('请输入有效的分数与总分！', 'warning');
+    const hasCurved = curvedVal !== '' && !isNaN(parseFloat(curvedVal));
+    if (!hasCurved && (scoreVal === '' || maxVal === '' || parseFloat(maxVal) <= 0)) {
+      this.showToast('请输入有效的原始分数与总分（或填写 Curve 后成绩）！', 'warning');
       return;
     }
 
-    const score = parseFloat(scoreVal);
-    const maxScore = parseFloat(maxVal);
-    const percentage = Math.round((score / maxScore) * 1000) / 10;
+    const maxScore = (maxVal !== '' && parseFloat(maxVal) > 0) ? parseFloat(maxVal) : 100;
+    const curvedScore = hasCurved ? Math.round(parseFloat(curvedVal) * 10) / 10 : null;
+    const score = scoreVal !== '' ? parseFloat(scoreVal) : (curvedScore !== null ? curvedScore : 0);
+    const rawPercentage = maxScore > 0 ? Math.round((score / maxScore) * 1000) / 10 : 0;
+    const percentage = curvedScore !== null ? curvedScore : rawPercentage;
+    const isCurved = curvedScore !== null;
 
     const sub = this.subjects.find(s => s.id === subjectId);
     const curriculum = sub ? (sub.curriculum || 'A Level') : 'A Level';
@@ -2285,6 +2323,9 @@ class App {
       date,
       score,
       maxScore,
+      rawPercentage,
+      curvedScore,
+      isCurved,
       percentage,
       grade,
       isFinal,
@@ -4725,7 +4766,10 @@ class App {
         sGrade = this.calculateGrade(sPercentNum, s.curriculum);
         const sorted = sExams.slice().sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
         const l = sorted[0];
-        latestScoreStr = `${l.score}/${l.maxScore} (${l.grade || ''})`;
+        const lCurved = !!(l.isCurved || (l.curvedScore !== undefined && l.curvedScore !== null && l.curvedScore !== ''));
+        latestScoreStr = lCurved
+          ? `${l.percentage}% Curve (${l.grade || ''})`
+          : `${l.score}/${l.maxScore} (${l.grade || ''})`;
       }
 
       const gradeStyle = this.getGradeBadgeStyle(sGrade);
@@ -4790,6 +4834,10 @@ class App {
 
       const score = exam.score !== undefined ? exam.score : '--';
       const maxScore = exam.maxScore !== undefined ? exam.maxScore : '--';
+      const isCurved = !!(exam.isCurved || (exam.curvedScore !== undefined && exam.curvedScore !== null && exam.curvedScore !== ''));
+      const rawPct = (exam.rawPercentage !== undefined && exam.rawPercentage !== null)
+        ? exam.rawPercentage
+        : (typeof exam.score === 'number' && typeof exam.maxScore === 'number' && exam.maxScore > 0 ? Math.round((exam.score / exam.maxScore) * 1000) / 10 : null);
       const percentage = exam.percentage !== undefined ? exam.percentage : 0;
       const grade = exam.grade || '--';
       const gradeBadgeStyle = this.getGradeBadgeStyle(grade);
@@ -4814,6 +4862,7 @@ class App {
                 <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">Summative</span>
                 <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${catPillStyle}">${categoryDisplayName}</span>
                 ${exam.isFinal ? '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700">🎓 期末 Final</span>' : ''}
+                ${isCurved ? '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 border border-violet-300 dark:border-violet-700">📈 已 Curve</span>' : ''}
                 <span class="text-xs text-slate-400 font-mono">${exam.date || '未设置日期'}</span>
               </div>
               <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 pt-0.5">${exam.title}</h3>
@@ -4837,16 +4886,17 @@ class App {
           <div class="bg-gradient-to-r from-slate-50 to-indigo-50/30 dark:from-slate-800/50 dark:to-indigo-950/20 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
             <!-- 卷面得分 -->
             <div>
-              <span class="text-[11px] text-slate-400 uppercase tracking-wider block">实得分 / 满分 (Raw Score)</span>
+              <span class="text-[11px] text-slate-400 uppercase tracking-wider block">原始分 / 满分 (Raw Score)</span>
               <div class="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono">
                 ${score} <span class="text-sm font-normal text-slate-400">/ ${maxScore} pts</span>
               </div>
+              ${isCurved && rawPct !== null ? `<span class="text-[11px] text-slate-400 font-mono">原始折算：${rawPct}%</span>` : ''}
             </div>
 
             <!-- 百分制得分率与进度条 -->
             <div class="flex-1 max-w-xs space-y-1">
               <div class="flex justify-between text-xs">
-                <span class="text-slate-500">折算百分制</span>
+                <span class="${isCurved ? 'text-violet-600 dark:text-violet-400 font-semibold' : 'text-slate-500'}">${isCurved ? 'Curve 后有效成绩' : '折算百分制'}</span>
                 <span class="font-bold text-slate-800 dark:text-slate-200 font-mono">${percentage}%</span>
               </div>
               <div class="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
