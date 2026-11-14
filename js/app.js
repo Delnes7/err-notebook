@@ -81,11 +81,13 @@ class App {
     this.assessmentConfigs = {};
     this.categoryScores = {};
 
-    // 成绩页面可折叠区域记忆
+    // 成绩页面可折叠区域记忆（首次打开默认全部折叠）
+    const defaultCollapsedSections = ['gpa_dashboard', 'diagnostics', 'charts_section', 'exam_records'];
     try {
-      this.collapsedExamSections = new Set(JSON.parse(localStorage.getItem('bnds_exams_collapsed_sections') || '[]'));
+      const savedCollapsed = localStorage.getItem('bnds_exams_collapsed_sections_v2');
+      this.collapsedExamSections = new Set(savedCollapsed ? JSON.parse(savedCollapsed) : defaultCollapsedSections);
     } catch (e) {
-      this.collapsedExamSections = new Set();
+      this.collapsedExamSections = new Set(defaultCollapsedSections);
     }
 
     // 编辑器暂存数据
@@ -1761,7 +1763,7 @@ class App {
     } else {
       this.collapsedExamSections.add(sectionKey);
     }
-    localStorage.setItem('bnds_exams_collapsed_sections', JSON.stringify([...this.collapsedExamSections]));
+    localStorage.setItem('bnds_exams_collapsed_sections_v2', JSON.stringify([...this.collapsedExamSections]));
     this.render();
   }
 
@@ -4865,29 +4867,26 @@ class App {
     // 🎓 1. 学期综合平时成绩看板 (遵循用户要求：仅在查看全科数据时出现，且支持收起折叠)
     const gpaDashboardCardHtml = isAllSelected ? this.renderCollapsibleCard({
       key: 'gpa_dashboard',
-      title: '十一学校国际部学期综合学业评价与各科平时成绩看板',
+      title: '学期综合学业评价',
       icon: '📋',
-      subtitle: '遵循十一打分方案：平时考核 (Attainment)、实践表现 (Course Skills)、学习习惯 (Learning Behavior) 与 Final 期末考加权综合折算',
-      badge: '全科综合看板',
+      badge: '全科综合',
       contentHtml: gpaDashboardHtml
     }) : '';
 
     // 🧭 2. 学情诊断与建议卡片 (支持收起折叠)
     const diagnosticCardHtml = this.renderCollapsibleCard({
       key: 'diagnostics',
-      title: isSubjectFocused ? `【${currentScopeName}】学情精准诊断与提分突破建议` : '十一学校国际部全科学情宏观诊断与复习规划',
+      title: isSubjectFocused ? `【${currentScopeName}】学情诊断与建议` : '全科学情诊断与复习规划',
       icon: '🧭',
-      subtitle: isSubjectFocused ? '定位当前学科高光表现、核心薄弱考点以及下一等级跨越目标' : '综合全科平时测验走势、单元失分聚集度智能给出提分路径',
-      badge: isSubjectFocused ? '单科深度' : '全科总览',
+      badge: isSubjectFocused ? '单科' : '全科',
       contentHtml: diagnosticHtml
     });
 
     // 📊 3. 多维图表可视化工作台 (支持收起折叠；单科模式下自动隐藏雷达图，环形图与条形图联动单科过滤)
     const chartsSectionCardHtml = this.renderCollapsibleCard({
       key: 'charts_section',
-      title: '多维交互式图表分析工作台',
+      title: '成绩走势与图表分析',
       icon: '📊',
-      subtitle: `历次走向、能力均衡、${currentScopeName} Task Grade 等级分布与考核项目对比`,
       badge: currentScopeName,
       contentHtml: `
         <div id="academic-charts-section" class="space-y-6">
@@ -5035,13 +5034,11 @@ class App {
       `
     });
 
-    // 📋 5. 小考测验明细记录列表 (支持收起折叠)
+    // 📋 4. 小考测验明细记录列表 (支持收起折叠)
     const examRecordsCardHtml = this.renderCollapsibleCard({
       key: 'exam_records',
       title: `历次小考记录明细 (${filteredExams.length})`,
       icon: '📋',
-      subtitle: `记录每次平时考核的卷面分、折算百分比、Task Grade 以及复盘笔记`,
-      badge: `${filteredExams.length} 条记录`,
       extraActionHtml: `
         <div class="flex flex-wrap items-center gap-1.5 text-xs">
           <select onchange="app.setExamFilter('subjectId', this.value)" class="px-2.5 py-1 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold focus:outline-none">
