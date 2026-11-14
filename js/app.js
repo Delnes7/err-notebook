@@ -4354,14 +4354,35 @@ class App {
     }
     const excellentRate = totalCount > 0 ? ((excellentCount / totalCount) * 100).toFixed(0) : 0;
 
-    // --- 智能学情分析与诊断 ---
-    // 1. 寻找领跑学科 (均分最高且至少考过1次)
+    // 🎓 评估顶层学科综合与 Task Category 评价 (数学 P1+S1 联动综合，物理/经济/CNCC)
+    const gpaSubjects = this.subjects.filter(s => !s.parentId);
+    const allAssessments = gpaSubjects.map(s => this.getSubjectAssessment(s.id)).filter(Boolean);
+    const validAssessments = allAssessments.filter(a => a.overallScore !== null);
+
+    let gpaPercentAvg = '--';
+    if (validAssessments.length > 0) {
+      const scoreSum = validAssessments.reduce((sum, a) => sum + a.overallScore, 0);
+      gpaPercentAvg = (scoreSum / validAssessments.length).toFixed(1);
+    }
+    const excellentSubCount = allAssessments.filter(a => ['A*', 'A', 'A+'].includes(a.grade)).length;
+
+    // --- 智能学情分析与诊断（均以各科加权总评为准）---
     let bestSub = null;
     let bestSubAvg = -1;
-    // 2. 寻找薄弱学科/需提升科目
     let lowestSub = null;
     let lowestSubAvg = 101;
-    // 3. 统计各单元得分率与错题数，定位重点复习薄弱单元
+    validAssessments.forEach(a => {
+      if (a.overallScore > bestSubAvg) {
+        bestSubAvg = a.overallScore;
+        bestSub = a.subject;
+      }
+      if (a.overallScore < lowestSubAvg) {
+        lowestSubAvg = a.overallScore;
+        lowestSub = a.subject;
+      }
+    });
+
+    // 统计各单元得分率与错题数，定位重点复习薄弱单元
     let weakestUnit = null;
     let weakestUnitSub = null;
     let lowestUnitAvg = 101;
@@ -4369,17 +4390,6 @@ class App {
     this.subjects.forEach(s => {
       const sExams = this.exams.filter(e => e.subjectId === s.id);
       if (sExams.length > 0) {
-        const sAvg = sExams.reduce((sum, e) => sum + (parseFloat(e.percentage) || 0), 0) / sExams.length;
-        if (sAvg > bestSubAvg) {
-          bestSubAvg = sAvg;
-          bestSub = s;
-        }
-        if (sAvg < lowestSubAvg) {
-          lowestSubAvg = sAvg;
-          lowestSub = s;
-        }
-
-        // 遍历单元找最薄弱点
         (s.units || []).forEach(u => {
           const uExams = sExams.filter(e => {
             if (Array.isArray(e.unitIds) && e.unitIds.includes(u.id)) return true;
@@ -4400,18 +4410,6 @@ class App {
         });
       }
     });
-
-    // 🎓 评估顶层学科综合与 Task Category 评价 (数学 P1+S1 联动综合，物理/经济/CNCC)
-    const gpaSubjects = this.subjects.filter(s => !s.parentId);
-    const allAssessments = gpaSubjects.map(s => this.getSubjectAssessment(s.id)).filter(Boolean);
-    const validAssessments = allAssessments.filter(a => a.overallScore !== null);
-
-    let gpaPercentAvg = '--';
-    if (validAssessments.length > 0) {
-      const scoreSum = validAssessments.reduce((sum, a) => sum + a.overallScore, 0);
-      gpaPercentAvg = (scoreSum / validAssessments.length).toFixed(1);
-    }
-    const excellentSubCount = allAssessments.filter(a => ['A*', 'A', 'A+'].includes(a.grade)).length;
 
     // 🎓 学期学业评价与各科平时成绩看板 (统一浅色/深色主题，无GPA)
     const gpaDashboardHtml = `
@@ -4548,7 +4546,7 @@ class App {
                 <span>🌟</span><span>全科领跑学科与发挥高光</span>
               </span>
               <p class="text-slate-600 dark:text-slate-300 mt-1">
-                ${bestSub ? `<strong>${bestSub.name}</strong> 保持卓越表现，平均折算得分率达到 <strong>${bestSubAvg.toFixed(1)}%</strong>，已具备稳妥的 A / A* 竞争力！继续保持刷题手感。` : '暂无充足测验数据'}
+                ${bestSub ? `<strong>${bestSub.name}</strong> 保持卓越表现，加权总评得分达到 <strong>${bestSubAvg.toFixed(1)}%</strong>，已具备稳妥的 A / A* 竞争力！继续保持刷题手感。` : '暂无充足测验数据'}
               </p>
             </div>
 
@@ -4574,7 +4572,7 @@ class App {
                 <span>📊</span><span>均衡度与提分发展规划</span>
               </span>
               <p class="text-slate-600 dark:text-slate-300 mt-1">
-                综合测验得分率 <strong>${avgPercentage}%</strong>，优良率 <strong>${excellentRate}%</strong>。参考下方全科学业均衡度雷达图进行补弱，平时测验与期末考协同发力！
+                全科综合加权均分 <strong>${gpaPercentAvg !== '--' ? gpaPercentAvg : avgPercentage}%</strong>，优良率 <strong>${excellentRate}%</strong>。参考下方全科学业均衡度雷达图进行补弱，平时测验与期末考协同发力！
               </p>
             </div>
           </div>
@@ -4595,10 +4593,16 @@ class App {
       let targetThreshold = 0;
       let gap = 0;
 
-      if (fCount > 0 && focusedSub) {
-        const sum = fExams.reduce((acc, e) => acc + (parseFloat(e.percentage) || 0), 0);
-        fAvg = Math.round((sum / fCount) * 10) / 10;
-        fGrade = this.calculateGrade(fAvg, focusedSub.curriculum);
+      if ((fCount > 0 || focusedSub) && focusedSub) {
+        const fAssess = this.getSubjectAssessment(focusedSub.id);
+        if (fAssess && fAssess.overallScore !== null) {
+          fAvg = fAssess.overallScore;
+          fGrade = fAssess.grade;
+        } else if (fCount > 0) {
+          const sum = fExams.reduce((acc, e) => acc + (parseFloat(e.percentage) || 0), 0);
+          fAvg = Math.round((sum / fCount) * 10) / 10;
+          fGrade = this.calculateGrade(fAvg, focusedSub.curriculum);
+        }
 
         let highestUnitAvg = -1;
         let lowestUnitAvg = 101;
@@ -5166,12 +5170,21 @@ class App {
         this.examFilter.chartCategories || ['attainment', 'skills', 'final']
       );
 
-      // 2. 全科学业均衡度雷达图：仅在全科模式下绘制！
+      // 2. 全科学业均衡度雷达图：仅在全科模式下绘制（使用各科加权总评得分）！
       if (!isSingleSubject) {
+        const topSubjects = this.subjects.filter(s => !s.parentId);
+        const weightedScores = {};
+        topSubjects.forEach(s => {
+          const assess = this.getSubjectAssessment(s.id);
+          if (assess && assess.overallScore !== null) {
+            weightedScores[s.id] = assess.overallScore;
+          }
+        });
         window.academicCharts.renderSubjectRadarChart(
           'chart-subject-radar',
-          this.subjects,
-          this.exams
+          topSubjects,
+          this.exams,
+          weightedScores
         );
       }
 

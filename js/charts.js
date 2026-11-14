@@ -254,25 +254,29 @@
     /**
      * 图表 2：全科学业均衡度与能力雷达图 (Radar Chart)
      */
-    renderSubjectRadarChart(canvasId, subjects, exams) {
+    renderSubjectRadarChart(canvasId, subjects, exams, weightedScores = null) {
       this.destroy(canvasId);
       const canvas = document.getElementById(canvasId);
       if (!canvas || typeof Chart === 'undefined') return;
 
       const colors = this.getColors();
 
-      // 计算每个学科的平均得分率
+      // 使用各科加权总评得分
       const labels = [];
       const averages = [];
 
       subjects.forEach(sub => {
-        const subExams = exams.filter(e => e.subjectId === sub.id);
         labels.push(sub.name);
-        if (subExams.length > 0) {
-          const avg = subExams.reduce((sum, e) => sum + (parseFloat(e.percentage) || 0), 0) / subExams.length;
-          averages.push(Math.round(avg * 10) / 10);
+        if (weightedScores && weightedScores[sub.id] !== undefined && weightedScores[sub.id] !== null) {
+          averages.push(Math.round(weightedScores[sub.id] * 10) / 10);
         } else {
-          averages.push(0);
+          const subExams = exams.filter(e => e.subjectId === sub.id);
+          if (subExams.length > 0) {
+            const avg = subExams.reduce((sum, e) => sum + (parseFloat(e.percentage) || 0), 0) / subExams.length;
+            averages.push(Math.round(avg * 10) / 10);
+          } else {
+            averages.push(0);
+          }
         }
       });
 
@@ -283,7 +287,7 @@
           labels: labels,
           datasets: [
             {
-              label: '各科当前平均得分率 (%)',
+              label: '各科加权总评得分 (%)',
               data: averages,
               backgroundColor: 'rgba(99, 102, 241, 0.25)',
               borderColor: '#6366f1',
