@@ -2412,9 +2412,16 @@ class App {
     reader.onload = async (e) => {
       try {
         const payload = JSON.parse(e.target.result);
-        const res = await window.db.importData(payload, 'merge');
+        if (!payload || !payload.data) {
+          throw new Error('备份格式不正确');
+        }
+        if (!confirm('导入备份将清空并覆盖当前设备上的所有现有错题、小考与学科数据，确定继续？')) {
+          fileInput.value = '';
+          return;
+        }
+        const res = await window.db.importData(payload, 'overwrite');
         await this.refreshData();
-        this.showToast(`成功恢复：${res.importedQuestions}道错题、${res.importedExams}场小考！`, 'success');
+        this.showToast(`成功覆盖恢复：${res.importedQuestions}道错题、${res.importedExams}场小考！`, 'success');
         this.render();
       } catch (err) {
         console.error(err);
