@@ -4709,98 +4709,7 @@ class App {
       `;
     }
 
-    // 学科卡片网格 HTML (各科成绩与 Task Grade 概览)
     const isAllSelected = this.examFilter.subjectId === 'all';
-    const allSubjectsCardHtml = `
-      <div onclick="app.clearSubjectFocus()" class="card-hover bg-white dark:bg-slate-900 rounded-2xl border ${isAllSelected ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/30 shadow-md' : 'border-slate-200 dark:border-slate-800'} p-4 cursor-pointer transition flex flex-col justify-between space-y-3">
-        <div class="flex items-start justify-between gap-2">
-          <div class="space-y-0.5">
-            <div class="flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"></span>
-              <h4 class="font-bold text-sm text-slate-900 dark:text-slate-100">🌟 全部学科总览</h4>
-            </div>
-            <span class="text-[10px] text-slate-400 font-mono">所有 A Level & CNCC · ${totalCount} 次测验</span>
-          </div>
-          <span class="px-2 py-0.5 rounded-lg text-xs font-black shadow-xs bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
-            全科均分
-          </span>
-        </div>
-
-        <div class="space-y-1">
-          <div class="flex justify-between text-[11px]">
-            <span class="text-slate-400">综合平均折算率</span>
-            <strong class="font-mono text-indigo-600 dark:text-indigo-400 font-bold">${avgPercentage}%</strong>
-          </div>
-          <div class="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div class="h-full rounded-full bg-indigo-600 transition-all duration-500" style="width: ${Math.min(100, Math.max(0, avgPercentage))}%"></div>
-          </div>
-        </div>
-
-        <div class="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
-          <span>优良率：${excellentRate}%</span>
-          <span class="${isAllSelected ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-500'}">${isAllSelected ? '✓ 当前全科总览' : '点击查看全科 ➔'}</span>
-        </div>
-      </div>
-    `;
-
-    const subjectCardsHtml = allSubjectsCardHtml + this.subjects.map(s => {
-      const sExams = this.exams.filter(e => e.subjectId === s.id);
-      const qCount = this.questions.filter(q => q.subjectId === s.id).length;
-      const count = sExams.length;
-      let sAvg = '--';
-      let sGrade = '--';
-      let sPercentNum = 0;
-      let latestScoreStr = '暂无记录';
-
-      if (count > 0) {
-        const sum = sExams.reduce((acc, e) => acc + (parseFloat(e.percentage) || 0), 0);
-        sPercentNum = Math.round((sum / count) * 10) / 10;
-        sAvg = sPercentNum + '%';
-        sGrade = this.calculateGrade(sPercentNum, s.curriculum);
-        const sorted = sExams.slice().sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-        const l = sorted[0];
-        const lCurved = !!(l.isCurved || (l.curvedScore !== undefined && l.curvedScore !== null && l.curvedScore !== ''));
-        latestScoreStr = lCurved
-          ? `${l.percentage}% Curve (${l.grade || ''})`
-          : `${l.score}/${l.maxScore} (${l.grade || ''})`;
-      }
-
-      const gradeStyle = this.getGradeBadgeStyle(sGrade);
-      const isFiltered = this.examFilter.subjectId === s.id;
-
-      return `
-        <div onclick="app.focusSubjectGrades('${s.id}')" class="card-hover bg-white dark:bg-slate-900 rounded-2xl border ${isFiltered ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50/20 dark:bg-indigo-950/20 shadow-md' : 'border-slate-200 dark:border-slate-800'} p-4 cursor-pointer transition flex flex-col justify-between space-y-3">
-          <div class="flex items-start justify-between gap-2">
-            <div class="space-y-0.5">
-              <div class="flex items-center gap-1.5">
-                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${s.color}"></span>
-                <h4 class="font-bold text-sm text-slate-900 dark:text-slate-100">${s.name}</h4>
-              </div>
-              <span class="text-[10px] text-slate-400 font-mono">${s.curriculum || 'A Level'} · ${count} 次测验</span>
-            </div>
-            <span class="px-2 py-0.5 rounded-lg text-xs font-black shadow-xs ${gradeStyle}">
-              ${sGrade}
-            </span>
-          </div>
-
-          <!-- 得分进度与平均率 -->
-          <div class="space-y-1">
-            <div class="flex justify-between text-[11px]">
-              <span class="text-slate-400">平均折算率</span>
-              <strong class="font-mono text-slate-800 dark:text-slate-200 font-bold">${sAvg}</strong>
-            </div>
-            <div class="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-500" style="width: ${Math.min(100, Math.max(0, sPercentNum))}%; background-color: ${s.color}"></div>
-            </div>
-          </div>
-
-          <div class="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
-            <span>最近得分：${latestScoreStr}</span>
-            <span class="${isFiltered ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-500'}">${isFiltered ? '✓ 当前已聚焦 (再次点击取消)' : '查看图表 ➔'}</span>
-          </div>
-        </div>
-      `;
-    }).join('');
 
     // 小考测验卡片列表 HTML
     const examCardsHtml = filteredExams.length === 0 ? `
@@ -4973,54 +4882,7 @@ class App {
       contentHtml: diagnosticHtml
     });
 
-    // 📚 3. 统计核心指标与各科学情概览卡片 (支持收起折叠)
-    const overviewMetricsCardHtml = this.renderCollapsibleCard({
-      key: 'overview_metrics',
-      title: '各科当前学业表现与 Task Grade 统计',
-      icon: '📚',
-      subtitle: '各科累计测验均分、折算进度以及等级分布概览',
-      badge: `共 ${this.subjects.length} 门在读科目`,
-      contentHtml: `
-        <div class="space-y-4">
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-2xs flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 flex items-center justify-center text-xl">📝</div>
-              <div>
-                <div class="text-xs text-slate-500 font-medium">累计小考测验</div>
-                <div class="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono">${totalCount} <span class="text-xs font-normal text-slate-400">次</span></div>
-              </div>
-            </div>
-            <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-2xs flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 flex items-center justify-center text-xl">📈</div>
-              <div>
-                <div class="text-xs text-slate-500 font-medium">综合平均得分率</div>
-                <div class="text-2xl font-black text-blue-600 font-mono">${avgPercentage}%</div>
-              </div>
-            </div>
-            <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-2xs flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center text-xl">🏆</div>
-              <div>
-                <div class="text-xs text-slate-500 font-medium">A / A* 优良率</div>
-                <div class="text-2xl font-black text-emerald-600 font-mono">${excellentRate}%</div>
-              </div>
-            </div>
-            <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-2xs flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 flex items-center justify-center text-xl">⭐</div>
-              <div>
-                <div class="text-xs text-slate-500 font-medium">领跑学科</div>
-                <div class="text-base font-black text-purple-600 truncate">${bestSub ? bestSub.name : '--'}</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 pt-1">
-            ${subjectCardsHtml}
-          </div>
-        </div>
-      `
-    });
-
-    // 📊 4. 多维图表可视化工作台 (支持收起折叠；单科模式下自动隐藏雷达图，环形图与条形图联动单科过滤)
+    // 📊 3. 多维图表可视化工作台 (支持收起折叠；单科模式下自动隐藏雷达图，环形图与条形图联动单科过滤)
     const chartsSectionCardHtml = this.renderCollapsibleCard({
       key: 'charts_section',
       title: '多维交互式图表分析工作台',
@@ -5278,10 +5140,7 @@ class App {
         <!-- 2. 🧭 学情诊断与智能提分复习建议 (全科宏观诊断 vs 单科精准深度诊断) -->
         ${diagnosticCardHtml}
 
-        <!-- 3. 📚 各科当前学业表现与 Task Grade 卡片 -->
-        ${overviewMetricsCardHtml}
-
-        <!-- 4. 📊 多维交互式图表可视化工作台 -->
+        <!-- 3. 📊 多维交互式图表可视化工作台 -->
         ${chartsSectionCardHtml}
 
         <!-- 5. 📋 小考测验明细记录列表 -->
