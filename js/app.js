@@ -5059,18 +5059,28 @@ class App {
             <!-- 考核项目/维度专属筛选胶囊 (支持多选，Learning Behaviour 自动排除) -->
             <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60 text-xs">
               <span class="text-slate-400 font-medium">筛选考核项目 (可多选)：</span>
-              <button onclick="app.toggleExamChartCategory('all')" data-cat="all" class="trend-cat-pill px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${(!this.examFilter.chartCategories || this.examFilter.chartCategories.length === 3) ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
-                全部学术项目
-              </button>
-              <button onclick="app.toggleExamChartCategory('attainment')" data-cat="attainment" class="trend-cat-pill px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${this.examFilter.chartCategories?.includes('attainment') ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
-                🎯 Attainment (平时考核)
-              </button>
-              <button onclick="app.toggleExamChartCategory('skills')" data-cat="skills" class="trend-cat-pill px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${this.examFilter.chartCategories?.includes('skills') ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
-                🔬 Course Skills
-              </button>
-              <button onclick="app.toggleExamChartCategory('final')" data-cat="final" class="trend-cat-pill px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${this.examFilter.chartCategories?.includes('final') ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
-                🏁 Final (期末考查)
-              </button>
+              ${(() => {
+                const chartCats = Array.isArray(this.examFilter.chartCategories) && this.examFilter.chartCategories.length > 0
+                  ? this.examFilter.chartCategories
+                  : ['attainment', 'skills', 'final'];
+                const isChartAll = chartCats.length >= 3;
+                const activeCls = 'bg-indigo-600 text-white shadow-xs';
+                const inactiveCls = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700';
+                return `
+                  <button onclick="app.toggleExamChartCategory('all')" data-cat="all" class="trend-cat-pill px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${isChartAll ? activeCls : inactiveCls}">
+                    全部学术项目
+                  </button>
+                  <button onclick="app.toggleExamChartCategory('attainment')" data-cat="attainment" class="trend-cat-pill px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${(!isChartAll && chartCats.includes('attainment')) ? activeCls : inactiveCls}">
+                    🎯 Attainment (平时考核)
+                  </button>
+                  <button onclick="app.toggleExamChartCategory('skills')" data-cat="skills" class="trend-cat-pill px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${(!isChartAll && chartCats.includes('skills')) ? activeCls : inactiveCls}">
+                    🔬 Course Skills
+                  </button>
+                  <button onclick="app.toggleExamChartCategory('final')" data-cat="final" class="trend-cat-pill px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${(!isChartAll && chartCats.includes('final')) ? activeCls : inactiveCls}">
+                    🏁 Final (期末考查)
+                  </button>
+                `;
+              })()}
             </div>
 
             <!-- 图表 Canvas 容器 -->
@@ -5184,7 +5194,7 @@ class App {
               { id: 'behavior', label: 'Learning Behavior' },
               { id: 'final', label: 'Final' }
             ].map(c => {
-              const active = selectedCats.includes(c.id);
+              const active = !isAllCats && selectedCats.includes(c.id);
               return `<button type="button" onclick="app.toggleExamListCategory('${c.id}')" class="px-2 py-0.5 rounded-lg text-[11px] font-semibold transition cursor-pointer ${active ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'}">${c.label}</button>`;
             }).join('')}
           </div>
@@ -5356,25 +5366,25 @@ class App {
     });
   }
 
-  toggleExamChartCategory(catId) {
-    if (!this.examFilter.chartCategories) {
-      this.examFilter.chartCategories = ['attainment', 'skills', 'final'];
+  _nextMultiFilterSelection(currentList, allItems, clickedId) {
+    const current = (Array.isArray(currentList) && currentList.length > 0) ? currentList : [...allItems];
+    if (clickedId === 'all') return [...allItems];
+    if (current.length >= allItems.length) {
+      return [clickedId];
     }
-    const allAcademicCats = ['attainment', 'skills', 'final'];
+    if (current.includes(clickedId)) {
+      return current.length === 1 ? [...allItems] : current.filter(c => c !== clickedId);
+    }
+    return [...current, clickedId];
+  }
 
-    if (catId === 'all') {
-      this.examFilter.chartCategories = [...allAcademicCats];
-    } else {
-      if (this.examFilter.chartCategories.includes(catId)) {
-        if (this.examFilter.chartCategories.length === 1) {
-          this.examFilter.chartCategories = [...allAcademicCats];
-        } else {
-          this.examFilter.chartCategories = this.examFilter.chartCategories.filter(c => c !== catId);
-        }
-      } else {
-        this.examFilter.chartCategories.push(catId);
-      }
-    }
+  toggleExamChartCategory(catId) {
+    const allAcademicCats = ['attainment', 'skills', 'final'];
+    this.examFilter.chartCategories = this._nextMultiFilterSelection(
+      this.examFilter.chartCategories,
+      allAcademicCats,
+      catId
+    );
 
     if (window.academicCharts) {
       window.academicCharts.renderScoreTrendChart(
@@ -5386,11 +5396,11 @@ class App {
       );
     }
 
-    const isAll = this.examFilter.chartCategories.length === allAcademicCats.length;
+    const isAll = this.examFilter.chartCategories.length >= allAcademicCats.length;
     const pills = document.querySelectorAll('.trend-cat-pill');
     pills.forEach(p => {
       const pCat = p.getAttribute('data-cat');
-      const isSelected = pCat === 'all' ? isAll : this.examFilter.chartCategories.includes(pCat);
+      const isSelected = pCat === 'all' ? isAll : (!isAll && this.examFilter.chartCategories.includes(pCat));
       if (isSelected) {
         p.className = 'trend-cat-pill px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer bg-indigo-600 text-white shadow-xs';
       } else {
@@ -5452,20 +5462,11 @@ class App {
 
   toggleExamListCategory(catId) {
     const allCats = ['attainment', 'skills', 'behavior', 'final'];
-    if (!Array.isArray(this.examFilter.categories) || this.examFilter.categories.length === 0) {
-      this.examFilter.categories = [...allCats];
-    }
-    if (catId === 'all') {
-      this.examFilter.categories = [...allCats];
-    } else if (this.examFilter.categories.includes(catId)) {
-      if (this.examFilter.categories.length === 1) {
-        this.examFilter.categories = [...allCats];
-      } else {
-        this.examFilter.categories = this.examFilter.categories.filter(c => c !== catId);
-      }
-    } else {
-      this.examFilter.categories.push(catId);
-    }
+    this.examFilter.categories = this._nextMultiFilterSelection(
+      this.examFilter.categories,
+      allCats,
+      catId
+    );
     this.render();
   }
 
