@@ -2146,14 +2146,14 @@ class App {
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
                 <!-- 原始分输入 -->
-                <div class="flex items-center gap-2">
-                  <div class="flex-1">
-                    <label class="block text-[11px] text-slate-500 mb-1">原始分 (Raw Score) *</label>
+                <div class="flex items-end gap-2">
+                  <div class="flex-1 min-w-0">
+                    <label class="block text-[11px] text-slate-500 mb-1 whitespace-nowrap">原始分 (Raw) *</label>
                     <input type="number" id="modal-exam-score" value="${exam.score !== undefined ? exam.score : ''}" placeholder="如 90" step="0.5" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" oninput="app.recalcModalExamScore()" />
                   </div>
-                  <span class="text-slate-400 text-lg pt-4 font-bold">/</span>
-                  <div class="flex-1">
-                    <label class="block text-[11px] text-slate-500 mb-1">该项满分 (Max) *</label>
+                  <span class="text-slate-400 text-lg pb-1.5 font-bold shrink-0">/</span>
+                  <div class="flex-1 min-w-0">
+                    <label class="block text-[11px] text-slate-500 mb-1 whitespace-nowrap">满分 (Max) *</label>
                     <input type="number" id="modal-exam-max" value="${exam.maxScore !== undefined ? exam.maxScore : 100}" placeholder="如 100" step="0.5" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" oninput="app.recalcModalExamScore()" />
                   </div>
                 </div>
