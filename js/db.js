@@ -84,20 +84,30 @@ class NotebookDB {
     });
   }
 
-  async saveSubject(subject) {
+  async saveSubject(subject, skipCloud = false) {
     const store = await this.getStore('subjects', 'readwrite');
     return new Promise((resolve, reject) => {
       const request = store.put(subject);
-      request.onsuccess = () => resolve(subject);
+      request.onsuccess = () => {
+        if (!skipCloud && window.cloudSync && window.cloudSync.isLoggedIn()) {
+          window.cloudSync.pushItem('subject', subject.id, subject, false);
+        }
+        resolve(subject);
+      };
       request.onerror = () => reject(request.error);
     });
   }
 
-  async deleteSubject(id) {
+  async deleteSubject(id, skipCloud = false) {
     const store = await this.getStore('subjects', 'readwrite');
     return new Promise((resolve, reject) => {
       const request = store.delete(id);
-      request.onsuccess = () => resolve(true);
+      request.onsuccess = () => {
+        if (!skipCloud && window.cloudSync && window.cloudSync.isLoggedIn()) {
+          window.cloudSync.pushItem('subject', id, { id }, true);
+        }
+        resolve(true);
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -126,20 +136,30 @@ class NotebookDB {
     });
   }
 
-  async saveExam(exam) {
+  async saveExam(exam, skipCloud = false) {
     const store = await this.getStore('exams', 'readwrite');
     return new Promise((resolve, reject) => {
       const request = store.put(exam);
-      request.onsuccess = () => resolve(exam);
+      request.onsuccess = () => {
+        if (!skipCloud && window.cloudSync && window.cloudSync.isLoggedIn()) {
+          window.cloudSync.pushItem('exam', exam.id, exam, false);
+        }
+        resolve(exam);
+      };
       request.onerror = () => reject(request.error);
     });
   }
 
-  async deleteExam(id) {
+  async deleteExam(id, skipCloud = false) {
     const store = await this.getStore('exams', 'readwrite');
     return new Promise((resolve, reject) => {
       const request = store.delete(id);
-      request.onsuccess = () => resolve(true);
+      request.onsuccess = () => {
+        if (!skipCloud && window.cloudSync && window.cloudSync.isLoggedIn()) {
+          window.cloudSync.pushItem('exam', id, { id }, true);
+        }
+        resolve(true);
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -167,20 +187,30 @@ class NotebookDB {
     });
   }
 
-  async saveQuestion(question) {
+  async saveQuestion(question, skipCloud = false) {
     const store = await this.getStore('questions', 'readwrite');
     return new Promise((resolve, reject) => {
       const request = store.put(question);
-      request.onsuccess = () => resolve(question);
+      request.onsuccess = () => {
+        if (!skipCloud && window.cloudSync && window.cloudSync.isLoggedIn()) {
+          window.cloudSync.pushItem('question', question.id, question, false);
+        }
+        resolve(question);
+      };
       request.onerror = () => reject(request.error);
     });
   }
 
-  async deleteQuestion(id) {
+  async deleteQuestion(id, skipCloud = false) {
     const store = await this.getStore('questions', 'readwrite');
     return new Promise((resolve, reject) => {
       const request = store.delete(id);
-      request.onsuccess = () => resolve(true);
+      request.onsuccess = () => {
+        if (!skipCloud && window.cloudSync && window.cloudSync.isLoggedIn()) {
+          window.cloudSync.pushItem('question', id, { id }, true);
+        }
+        resolve(true);
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -223,16 +253,24 @@ class NotebookDB {
     return await this.getSetting('subject_assessment_configs', {});
   }
 
-  async saveAssessmentConfigs(configs) {
-    return await this.setSetting('subject_assessment_configs', configs);
+  async saveAssessmentConfigs(configs, skipCloud = false) {
+    const res = await this.setSetting('subject_assessment_configs', configs);
+    if (!skipCloud && window.cloudSync && window.cloudSync.isLoggedIn()) {
+      window.cloudSync.pushItem('meta', 'subject_assessment_configs', configs, false);
+    }
+    return res;
   }
 
   async getCategoryScores() {
     return await this.getSetting('subject_category_scores', {});
   }
 
-  async saveCategoryScores(scores) {
-    return await this.setSetting('subject_category_scores', scores);
+  async saveCategoryScores(scores, skipCloud = false) {
+    const res = await this.setSetting('subject_category_scores', scores);
+    if (!skipCloud && window.cloudSync && window.cloudSync.isLoggedIn()) {
+      window.cloudSync.pushItem('meta', 'subject_category_scores', scores, false);
+    }
+    return res;
   }
 
   // --- 数据全量导出与导入 ---

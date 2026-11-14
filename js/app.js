@@ -159,6 +159,26 @@ class App {
     this.bindEvents();
     this.bindPasteEvent();
     this.render();
+
+    // 初始化 Supabase 云端同步（若已登录则后台自动拉取/合并最新数据）
+    if (window.cloudSync) {
+      window.cloudSync.onChange(() => {
+        this.renderHeader();
+        if (this.currentTab === 'settings') {
+          this.render();
+        }
+      });
+      try {
+        const user = await window.cloudSync.init();
+        if (user) {
+          await window.cloudSync.syncNow();
+          await this.refreshData();
+          this.render();
+        }
+      } catch (err) {
+        console.warn('启动云同步失败:', err);
+      }
+    }
   }
 
   // --- 主题切换 ---
@@ -2421,6 +2441,9 @@ class App {
         }
         const res = await window.db.importData(payload, 'overwrite');
         await this.refreshData();
+        if (window.cloudSync && window.cloudSync.isLoggedIn()) {
+          await window.cloudSync.pushAllLocalToCloud(true);
+        }
         this.showToast(`成功覆盖恢复：${res.importedQuestions}道错题、${res.importedExams}场小考！`, 'success');
         this.render();
       } catch (err) {
@@ -2599,6 +2622,20 @@ class App {
     `).join('');
     const mobileNav = document.getElementById('mobile-nav-items');
     if (mobileNav) mobileNav.innerHTML = mobileNavHtml;
+
+    const syncPillEl = document.getElementById('cloud-sync-pill');
+    if (syncPillEl && window.cloudSync) {
+      const s = window.cloudSync.getStatusSummary();
+      if (!s.loggedIn) {
+        syncPillEl.innerHTML = `<button type="button" onclick="app.switchTab('settings')" class="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-700 transition" title="登录账号以开启多设备云同步">☁️ 未登录</button>`;
+      } else if (s.syncStatus === 'syncing') {
+        syncPillEl.innerHTML = `<button type="button" disabled class="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 animate-pulse">☁️ 同步中...</button>`;
+      } else if (s.syncStatus === 'error') {
+        syncPillEl.innerHTML = `<button type="button" onclick="app.cloudSyncNow()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 hover:bg-rose-100 transition" title="${this.escapeHtml(s.lastError || '同步出错，点击重试')}">☁️ 同步失败</button>`;
+      } else {
+        syncPillEl.innerHTML = `<button type="button" onclick="app.cloudSyncNow()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition" title="点击立即双向同步 (${this.escapeHtml(s.email)})">☁️ 已同步</button>`;
+      }
+    }
   }
 
   // --- 模块 1：错题库视图 ---
@@ -6649,10 +6686,89 @@ class App {
     }
   }
 
+  async cloudSignIn() {
+    const emailEl = document.getElementById('cloud-email-input');
+    const pwdEl = document.getElementById('cloud-password-input');
+    const email = emailEl ? emailEl.value.trim() : '';
+    const password = pwdEl ? pwdEl.value : '';
+    if (!email || !password) {
+      this.showToast('请输入邮箱和密码！', 'warning');
+      return;
+    }
+    try {
+      await window.cloudSync.signIn(email, password);
+      this.showToast('登录成功，正在同步云端数据...', 'info');
+      const res = await window.cloudSync.syncNow();
+      await this.refreshData();
+      this.render();
+      this.showToast(`✅ 云同步完成（拉取 ${res.pulled || 0} 条，上传 ${res.pushed || 0} 条）`, 'success');
+    } catch (err) {
+      this.showToast(`登录失败：${err.message}`, 'error');
+    }
+  }
+
+  async cloudSignUp() {
+    const emailEl = document.getElementById('cloud-email-input');
+    const pwdEl = document.getElementById('cloud-password-input');
+    const email = emailEl ? emailEl.value.trim() : '';
+    const password = pwdEl ? pwdEl.value : '';
+    if (!email || password.length < 6) {
+      this.showToast('请输入有效邮箱和至少 6 位密码！', 'warning');
+      return;
+    }
+    try {
+      const data = await window.cloudSync.signUp(email, password);
+      if (data && data.session) {
+        this.showToast('注册并登录成功，正在初始化云端数据...', 'info');
+        await window.cloudSync.syncNow();
+        await this.refreshData();
+        this.render();
+        this.showToast('✅ 账号已创建并完成首次同步！', 'success');
+      } else {
+        this.showToast('📧 注册成功！请先去邮箱点击验证链接，然后再点「登录并同步」', 'info');
+      }
+    } catch (err) {
+      this.showToast(`注册失败：${err.message}`, 'error');
+    }
+  }
+
+  async cloudSignOut() {
+    await window.cloudSync.signOut();
+    this.showToast('已退出云同步账号（本地离线数据仍保留）', 'info');
+    this.render();
+  }
+
+  async cloudSyncNow() {
+    if (!window.cloudSync || !window.cloudSync.isLoggedIn()) {
+      this.switchTab('settings');
+      return;
+    }
+    try {
+      const res = await window.cloudSync.syncNow();
+      await this.refreshData();
+      this.render();
+      this.showToast(`✅ 云端同步完成（拉取 ${res.pulled || 0} 条，上传 ${res.pushed || 0} 条）`, 'success');
+    } catch (err) {
+      this.showToast(`同步失败：${err.message}`, 'error');
+    }
+  }
+
+  async cloudPushOverwrite() {
+    if (!confirm('确定要用当前设备的本地数据完全覆盖云端数据吗？（其他设备同步后也会变成当前设备的内容）')) return;
+    try {
+      const res = await window.cloudSync.pushAllLocalToCloud(true);
+      this.render();
+      this.showToast(`✅ 已将本机 ${res.uploaded} 条数据覆盖上传至云端！`, 'success');
+    } catch (err) {
+      this.showToast(`上传失败：${err.message}`, 'error');
+    }
+  }
+
   // --- 模块 6：数据备份与系统设置 ---
   renderSettingsTab() {
     const aiCfg = window.geminiAI ? window.geminiAI.getConfig() : { provider: 'deepseek', apiKey: '', model: 'deepseek-flash', baseUrl: 'https://api.deepseek.com' };
     const isDeepSeek = aiCfg.provider === 'deepseek';
+    const syncState = window.cloudSync ? window.cloudSync.getStatusSummary() : { loggedIn: false, email: '', syncStatus: 'idle', lastSyncedAt: '', lastError: '' };
     return `
       <div class="max-w-3xl mx-auto space-y-6">
         <div>
@@ -6660,7 +6776,67 @@ class App {
             <span>⚙️</span>
             <span>数据备份与系统设置</span>
           </h2>
-          <p class="text-xs text-slate-500 mt-1">本地数据库安全、大容量离线存储，随时备份与还原</p>
+          <p class="text-xs text-slate-500 mt-1">多设备云同步 + 本地离线存储，随时备份与还原</p>
+        </div>
+
+        <!-- 多设备云同步 (Supabase) -->
+        <div class="bg-gradient-to-br from-emerald-50/80 via-sky-50/60 to-indigo-50/70 dark:from-emerald-950/30 dark:via-slate-900 dark:to-indigo-950/30 rounded-2xl border border-emerald-200/90 dark:border-emerald-800/60 p-6 shadow-xs space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center text-base shadow-xs">☁️</span>
+              <div>
+                <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">多设备云端同步 (Supabase)</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">Mac / iPad / iPhone 登录同一账号即可自动同步错题、小考与学科</p>
+              </div>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-[11px] font-bold ${syncState.loggedIn ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'}">
+              ${syncState.loggedIn ? `🟢 已登录: ${this.escapeHtml(syncState.email)}` : '⚪ 未登录 (仅本地模式)'}
+            </span>
+          </div>
+
+          ${syncState.loggedIn ? `
+            <div class="space-y-3">
+              <div class="text-xs text-slate-600 dark:text-slate-300 flex flex-wrap items-center gap-3">
+                <span>最近同步时间：<strong>${syncState.lastSyncedAt ? new Date(syncState.lastSyncedAt).toLocaleString() : '刚刚'}</strong></span>
+                ${syncState.lastError ? `<span class="text-rose-600 dark:text-rose-400">错误：${this.escapeHtml(syncState.lastError)}</span>` : ''}
+              </div>
+              <div class="flex flex-wrap items-center gap-2.5">
+                <button type="button" onclick="app.cloudSyncNow()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition">
+                  🔄 立即双向同步
+                </button>
+                <button type="button" onclick="app.cloudPushOverwrite()" class="px-4 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                  ⬆️ 用本机数据覆盖云端
+                </button>
+                <button type="button" onclick="app.cloudSignOut()" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
+                  退出登录
+                </button>
+              </div>
+            </div>
+          ` : `
+            <div class="space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-600 dark:text-slate-400 mb-1">邮箱地址</label>
+                  <input type="email" id="cloud-email-input" placeholder="your@email.com" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-600 dark:text-slate-400 mb-1">密码（至少 6 位）</label>
+                  <input type="password" id="cloud-password-input" placeholder="••••••" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-2.5">
+                <button type="button" onclick="app.cloudSignIn()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition">
+                  🔑 登录并同步
+                </button>
+                <button type="button" onclick="app.cloudSignUp()" class="px-4 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-slate-700 transition">
+                  ✨ 注册新账号
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                提示：首次使用请先注册一个账号（若 Supabase 开启了邮件确认，请查收邮箱点确认后再点「登录并同步」）。建议先在<strong>存有你真实错题的设备</strong>上登录一次，系统会自动把本机错题上传到云端；之后在 iPad/iPhone 登录同一账号即可自动拉取同步。
+              </p>
+            </div>
+          `}
         </div>
 
         <div class="bg-white dark:bg-slate-900 rounded-2xl border border-indigo-200/80 dark:border-indigo-900/60 p-6 shadow-xs space-y-4">
