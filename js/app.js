@@ -731,12 +731,16 @@ class App {
       }
     }
 
+    const noteEl = !skipDomRead && document.getElementById('editor-solution-note');
+    if (noteEl) this.form.solutionNote = noteEl.value;
+
     // 同步刷新预览 (支持 完整卷面预览 / 仅题目预览 / 仅题解预览自由切换)
     const previewEl = document.getElementById('editor-preview');
     if (previewEl) {
       const scope = this.editorPreviewScope || 'all';
       const contentText = (this.form.content || '').trim();
       const solRaw = ((this.form.questionType === 'multiple_choice' ? this.form.compiledSolution : this.form.solution) || '').trim();
+      const solNote = (this.form.solutionNote || '').trim();
 
       let textToPreview = '';
       if (scope === 'content') {
@@ -744,21 +748,37 @@ class App {
       } else if (scope === 'solution') {
         textToPreview = solRaw 
           ? `### 📋 参考题解与 Mark Scheme 评分细则\n\n${solRaw}` 
-          : '*暂未录入参考题解与 Mark Scheme 评分步骤*';
+          : (solNote ? '' : '*暂未录入参考题解与 Mark Scheme 评分步骤*');
       } else {
         // 'all': 卷面全览模式 (题目正文 + 官方 Mark Scheme 题解表格)
         const sections = [];
         sections.push(contentText || '*暂无题目正文，请在左侧输入...*');
         if (solRaw) {
           sections.push(`---\n\n### 📋 官方 Mark Scheme / 参考题解预览\n\n${solRaw}`);
-        } else {
+        } else if (!solNote) {
           sections.push(`---\n\n*💡 提示：录入题解后即可在此实时预览官方 Mark Scheme 表格*`);
         }
         textToPreview = sections.join('\n\n');
       }
 
-      previewEl.innerHTML = window.markdownRenderer.render(textToPreview);
+      const mainHtml = textToPreview ? window.markdownRenderer.render(textToPreview) : '';
+      const noteHtml = (scope !== 'content' && solNote) ? `
+        <div class="mt-4 p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60">
+          <div class="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1.5 flex items-center gap-1.5">
+            <span>💡</span><span>思路点拨与解题备注</span>
+          </div>
+          <div class="markdown-body text-slate-800 dark:text-slate-200 text-xs sm:text-sm leading-relaxed">
+            ${window.markdownRenderer.render(solNote)}
+          </div>
+        </div>
+      ` : '';
+      previewEl.innerHTML = `${mainHtml}${noteHtml}`;
     }
+  }
+
+  updateSolutionNote(val) {
+    this.form.solutionNote = val;
+    this.compileQuestionContent(true);
   }
 
   setQuestionType(type) {
@@ -1541,6 +1561,7 @@ class App {
         : null,
       content: content,
       solution: solution,
+      solutionNote: (this.form.solutionNote || '').trim(),
       reasons: this.form.reasons || [],
       mastery: mastery,
       difficulty: parseInt(this.form.difficulty, 10) || 3,
@@ -1657,6 +1678,7 @@ class App {
       ],
       content: q.content || '',
       solution: q.solution || '',
+      solutionNote: q.solutionNote || '',
       compiledSolution: '',
       reasons: [...(q.reasons || [])],
       mastery: q.mastery,
@@ -1757,6 +1779,7 @@ class App {
       ],
       content: '',
       solution: '',
+      solutionNote: '',
       compiledSolution: '',
       reasons: [],
       mastery: 0,
@@ -3156,6 +3179,14 @@ class App {
                 <div class="mt-2 p-4 rounded-xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 text-slate-800 dark:text-slate-200 text-sm leading-relaxed animate-fade-in">
                   <div class="text-xs font-bold uppercase tracking-wider text-indigo-500 mb-2">【标准解析与 Mark Scheme】</div>
                   <div class="markdown-body question-solution-text">${renderedSolution}</div>
+                  ${q.solutionNote && q.solutionNote.trim() ? `
+                    <div class="mt-3 p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60">
+                      <div class="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1 flex items-center gap-1.5">
+                        <span>💡</span><span>思路点拨与解题备注（为什么要这样写）</span>
+                      </div>
+                      <div class="markdown-body question-solution-text text-slate-800 dark:text-slate-200 text-xs sm:text-sm leading-relaxed">${window.markdownRenderer.render(q.solutionNote)}</div>
+                    </div>
+                  ` : ''}
                 </div>
               ` : ''}
             </div>
@@ -3718,6 +3749,24 @@ class App {
                   </div>
                 </div>
               `)}
+
+              <!-- 补充解题备注（适用于所有题型：记录 Mark Scheme 未写明的思路与“为什么这样写”） -->
+              <div class="${(!isMcq && !isMultiPart && this.activeEditorTab === 'content') ? 'hidden' : 'block'} pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <label for="editor-solution-note" class="block text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                    <span>💡</span>
+                    <span>思路点拨与解题备注 (可选 · 补充“为什么这样写”)</span>
+                  </label>
+                  <span class="text-[11px] text-slate-400">支持 Markdown / $LaTeX$ 公式</span>
+                </div>
+                <textarea
+                  id="editor-solution-note"
+                  rows="3"
+                  oninput="app.updateSolutionNote(this.value)"
+                  class="w-full p-3 font-mono text-xs leading-relaxed bg-amber-50/40 dark:bg-amber-950/20 rounded-xl border border-amber-200/80 dark:border-amber-800/60 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-y"
+                  placeholder="官方 Mark Scheme 往往省略了推导动机，可在此补充：&#10;• 为什么第一步要设这个变量 / 用这个公式？&#10;• 哪些隐含条件或易错边界需要注意？"
+                >${this.escapeHtml(this.form.solutionNote || '')}</textarea>
+              </div>
             </div>
 
             <!-- 右侧实时 KaTeX 预览面板 (高度与左侧输入区完全同步等高) -->

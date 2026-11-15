@@ -216,6 +216,12 @@ class PracticePaperEngine {
             ` : ''}
             <div class="markdown-body text-slate-800 text-sm pl-7 leading-relaxed">
               ${renderedSolution}
+              ${q.solutionNote && q.solutionNote.trim() ? `
+                <div class="mt-2.5 p-3 rounded-lg bg-amber-50/80 border border-amber-200 text-xs sm:text-sm">
+                  <div class="font-bold text-amber-800 mb-1">💡 思路点拨与解题备注：</div>
+                  <div class="markdown-body text-slate-800">${window.markdownRenderer.render(q.solutionNote)}</div>
+                </div>
+              ` : ''}
             </div>
           </div>
         `;
