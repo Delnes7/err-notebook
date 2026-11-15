@@ -5522,7 +5522,8 @@ class App {
           <div class="flex flex-col sm:flex-row sm:items-center gap-2">
             <span class="font-bold text-slate-700 dark:text-slate-200 shrink-0">作答留白区域：</span>
             <div class="flex flex-wrap items-center gap-2">
-              <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 whitespace-nowrap"><input type="radio" name="paper-spacing" value="none" ${window.practicePaperEngine.options.spacing === 'none' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'none')" /> 无需留白 (紧凑省纸)</label>
+              <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 whitespace-nowrap"><input type="radio" name="paper-spacing" value="auto" ${(window.practicePaperEngine.options.spacing || 'auto') === 'auto' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'auto')" /> 智能按小问 (推荐)</label>
+              <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 whitespace-nowrap"><input type="radio" name="paper-spacing" value="none" ${window.practicePaperEngine.options.spacing === 'none' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'none')" /> 无需留白</label>
               <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 whitespace-nowrap"><input type="radio" name="paper-spacing" value="compact" ${window.practicePaperEngine.options.spacing === 'compact' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'compact')" /> 紧凑 (80px)</label>
               <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 whitespace-nowrap"><input type="radio" name="paper-spacing" value="medium" ${window.practicePaperEngine.options.spacing === 'medium' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'medium')" /> 标准 (160px)</label>
               <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 whitespace-nowrap"><input type="radio" name="paper-spacing" value="large" ${window.practicePaperEngine.options.spacing === 'large' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'large')" /> 大题演算 (300px)</label>
@@ -5639,6 +5640,35 @@ class App {
 
   setPracticeOption(key, val) {
     window.practicePaperEngine.options[key] = val;
+    if (key === 'spacing') {
+      window.practicePaperEngine.clearCustomSpacing();
+    }
+    this.render();
+  }
+
+  previewPracticeQuestionSpacing(questionId, val) {
+    const px = Math.max(0, Math.min(800, Math.round(Number(val) || 0)));
+    const box = document.querySelector(`[data-write-area-qid="${questionId}"]`);
+    if (box) box.style.minHeight = `${px}px`;
+    const label = document.querySelector(`[data-write-val-qid="${questionId}"]`);
+    if (label) label.textContent = `${px}px`;
+  }
+
+  setPracticeQuestionSpacing(questionId, val) {
+    window.practicePaperEngine.setQuestionSpacing(questionId, val);
+    this.render();
+  }
+
+  adjustPracticeQuestionSpacing(questionId, delta) {
+    const q = this.questions.find(item => item.id === questionId);
+    if (!q) return;
+    const current = window.practicePaperEngine.getQuestionSpacing(q);
+    window.practicePaperEngine.setQuestionSpacing(questionId, current + delta);
+    this.render();
+  }
+
+  resetPracticeQuestionSpacing(questionId) {
+    window.practicePaperEngine.resetQuestionSpacing(questionId);
     this.render();
   }
 

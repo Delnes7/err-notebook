@@ -6,16 +6,58 @@
 class PracticePaperEngine {
   constructor() {
     this.selectedQuestionIds = new Set();
+    this.customSpacingMap = {};
     this.options = {
       title: 'A Level / CNCC 错题复盘与重做强化试卷',
       subtitle: '姓名：__________   班级：__________   用时：______分钟   得分：__________',
       fontSize: 'medium',      // 'small' (9.5pt), 'medium' (10.5pt), 'large' (12pt)
-      spacing: 'compact',      // 'none' (0px紧凑无留白), 'compact' (80px), 'medium' (160px), 'large' (300px)
+      spacing: 'auto',         // 'auto' (按小问数量智能留白), 'none' (0px), 'compact' (80px), 'medium' (160px), 'large' (300px)
       includeSolutions: false, // 是否在卷末附带参考解析
       showExamInfo: false,     // 组卷不显示题目来源考试
       showReasons: false,      // 题目是否显示错因
       showUnitBadge: true      // 是否显示所属单元标签
     };
+  }
+
+  /**
+   * 按小问数量计算默认留白高度（px）：
+   * 1~2 问留 140px，3 问留 240px，4 问留 340px，更多小问递增加大
+   */
+  getDefaultSpacingPx(q) {
+    if (!q || q.questionType === 'multiple_choice') return 0;
+    const partCount = (Array.isArray(q.parts) && q.parts.length > 0) ? q.parts.length : 1;
+    if (partCount <= 2) return 140;
+    if (partCount === 3) return 240;
+    return Math.min(520, 340 + (partCount - 4) * 60);
+  }
+
+  /**
+   * 获取某道题最终生效的留白高度（px）
+   */
+  getQuestionSpacing(q) {
+    if (!q || q.questionType === 'multiple_choice') return 0;
+    if (Object.prototype.hasOwnProperty.call(this.customSpacingMap, q.id)) {
+      return Math.max(0, Math.min(800, Number(this.customSpacingMap[q.id]) || 0));
+    }
+    const mode = this.options.spacing || 'auto';
+    if (mode === 'none') return 0;
+    if (mode === 'compact') return 80;
+    if (mode === 'medium') return 160;
+    if (mode === 'large') return 300;
+    return this.getDefaultSpacingPx(q);
+  }
+
+  setQuestionSpacing(questionId, px) {
+    const clamped = Math.max(0, Math.min(800, Math.round(Number(px) || 0)));
+    this.customSpacingMap[questionId] = clamped;
+  }
+
+  resetQuestionSpacing(questionId) {
+    delete this.customSpacingMap[questionId];
+  }
+
+  clearCustomSpacing() {
+    this.customSpacingMap = {};
   }
 
   toggleSelect(id) {
@@ -91,17 +133,15 @@ class PracticePaperEngine {
       }
     });
 
-    const showWriteArea = this.options.spacing !== 'none';
-    let spacingHeight = '160px';
-    if (this.options.spacing === 'compact') spacingHeight = '80px';
-    else if (this.options.spacing === 'large') spacingHeight = '300px';
-
     // 题目列表
     let questionsHtml = '';
     questions.forEach((q, idx) => {
       const sub = subMap.get(q.subjectId);
       const unitName = unitNameMap.get(q.unitId);
       const isMcq = q.questionType === 'multiple_choice';
+      const spacingPx = this.getQuestionSpacing(q);
+      const isCustomSpacing = Object.prototype.hasOwnProperty.call(this.customSpacingMap, q.id);
+      const partCount = (Array.isArray(q.parts) && q.parts.length > 0) ? q.parts.length : 1;
       const renderedContent = window.markdownRenderer.render(q.content);
 
       questionsHtml += `
@@ -122,13 +162,27 @@ class PracticePaperEngine {
             ${renderedContent}
           </div>
 
-          <!-- 答题演算留白区域（选择题不需要作答区域） -->
-          ${showWriteArea && !isMcq ? `
-            <div class="practice-write-area ml-8 mt-3 rounded-lg p-2.5 text-xs text-slate-400 select-none flex flex-col justify-between" style="min-height: ${spacingHeight};">
-              <span class="text-[10px] font-mono tracking-wider opacity-60">【答题与演算留白区】</span>
+          <!-- 答题演算留白区域（选择题不需要作答区域；预览时支持单题实时调节留白高度） -->
+          ${!isMcq ? (spacingPx > 0 ? `
+            <div data-write-area-qid="${q.id}" class="practice-write-area ml-8 mt-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/30 p-2.5 text-xs text-slate-400 select-none flex flex-col justify-between transition-[min-height] duration-150" style="min-height: ${spacingPx}px;">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-[10px] font-mono tracking-wider opacity-70">【答题与演算留白区${partCount > 1 ? ` · ${partCount}小问` : ''}】</span>
+                <div class="no-print flex flex-wrap items-center gap-1.5 bg-white/90 dark:bg-slate-900/90 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-2xs text-[11px] text-slate-600 dark:text-slate-300">
+                  <button type="button" onclick="app.adjustPracticeQuestionSpacing('${q.id}', -40)" class="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 font-bold leading-none" title="减少 40px">−</button>
+                  <input type="range" min="0" max="600" step="20" value="${Math.min(600, spacingPx)}" oninput="app.previewPracticeQuestionSpacing('${q.id}', this.value)" onchange="app.setPracticeQuestionSpacing('${q.id}', this.value)" class="w-20 sm:w-28 accent-indigo-600 cursor-pointer" title="拖动调节本题留白高度" />
+                  <button type="button" onclick="app.adjustPracticeQuestionSpacing('${q.id}', 40)" class="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 font-bold leading-none" title="增加 40px">+</button>
+                  <span data-write-val-qid="${q.id}" class="font-mono font-bold text-indigo-600 dark:text-indigo-400 min-w-[38px] text-right">${spacingPx}px</span>
+                  ${isCustomSpacing ? `<button type="button" onclick="app.resetPracticeQuestionSpacing('${q.id}')" class="text-[10px] text-slate-400 hover:text-rose-500 underline ml-0.5">默认</button>` : ''}
+                </div>
+              </div>
               <div class="text-right text-[10px] font-mono opacity-40">得分：______</div>
             </div>
-          ` : ''}
+          ` : `
+            <div class="no-print ml-8 mt-2 flex items-center gap-2 text-[11px] text-slate-400">
+              <span>本题当前无留白</span>
+              <button type="button" onclick="app.setPracticeQuestionSpacing('${q.id}', ${this.getDefaultSpacingPx(q)})" class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-semibold border border-slate-200 dark:border-slate-700 transition">+ 添加作答留白 (${this.getDefaultSpacingPx(q)}px)</button>
+            </div>
+          `) : ''}
         </div>
       `;
     });
