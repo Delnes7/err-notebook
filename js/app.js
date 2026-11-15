@@ -3027,8 +3027,8 @@ class App {
 
           const stemHtml = q.stem ? `<div class="mb-3 font-medium text-slate-800 dark:text-slate-200">${window.markdownRenderer.render(q.stem)}</div>` : '';
           const optionsHtml = optKeys.map(l => {
-            const isCorrect = correctList.includes(l);
-            const isMy = myList.includes(l);
+            const isCorrect = isSolutionExpanded && correctList.includes(l);
+            const isMy = isSolutionExpanded && myList.includes(l);
             let cardStyle = 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-800 dark:text-slate-200';
             if (isCorrect) {
               cardStyle = 'border-emerald-400 dark:border-emerald-700 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 font-bold';
@@ -3121,8 +3121,8 @@ class App {
                 <!-- 题型徽章与小问状态 -->
                 ${isMcq ? `
                   <span class="px-2 py-0.5 rounded-md text-xs font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200/50">🔘 单选题</span>
-                  ${q.myOption ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 border border-rose-200/50">错选: ${q.myOption}</span>` : ''}
-                  ${q.correctOption ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200/50">正解: ${q.correctOption}</span>` : ''}
+                  ${isSolutionExpanded && q.myOption ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 border border-rose-200/50">错选: ${q.myOption}</span>` : ''}
+                  ${isSolutionExpanded && q.correctOption ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200/50">正解: ${q.correctOption}</span>` : ''}
                 ` : (hasParts ? `
                   <span class="px-2 py-0.5 rounded-md text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 border border-indigo-200/50">📋 复合大题 (${q.parts.length}问)</span>
                   ${wrongParts.length > 0 ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 border border-rose-200/50">错在: ${wrongParts.map(p => p.label).join('、')}</span>` : ''}
