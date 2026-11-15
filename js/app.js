@@ -2712,6 +2712,24 @@ class App {
     const mobileNav = document.getElementById('mobile-nav-items');
     if (mobileNav) mobileNav.innerHTML = mobileNavHtml;
 
+    const fontCtrlEl = document.getElementById('header-font-size-control');
+    if (fontCtrlEl) {
+      const curSize = this.questionFontSize || 'medium';
+      const sizes = [
+        { id: 'normal', label: '标准', title: '标准字号 (15px)' },
+        { id: 'medium', label: '适中', title: '适中大字 (17px)' },
+        { id: 'large', label: '特大', title: '清晰特大 (19px)' }
+      ];
+      fontCtrlEl.innerHTML = `
+        <div class="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200/80 dark:border-slate-700 text-xs" title="调节题目字号">
+          <span class="hidden md:inline text-[11px] text-slate-400 font-medium px-1.5">字号</span>
+          ${sizes.map(sz => `
+            <button type="button" onclick="app.setQuestionFontSize('${sz.id}')" title="${sz.title}" class="px-1.5 sm:px-2 py-1 rounded-lg text-[11px] sm:text-xs transition cursor-pointer ${curSize === sz.id ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">${sz.label}</button>
+          `).join('')}
+        </div>
+      `;
+    }
+
     const syncPillEl = document.getElementById('cloud-sync-pill');
     if (syncPillEl && window.cloudSync) {
       const s = window.cloudSync.getStatusSummary();
@@ -2816,17 +2834,6 @@ class App {
                 <option value="oldest" ${this.filter.sortBy === 'oldest' ? 'selected' : ''}>最早录入</option>
                 <option value="mastery" ${this.filter.sortBy === 'mastery' ? 'selected' : ''}>优先待攻克题</option>
               </select>
-
-              <!-- 字号调节器 -->
-              <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200/80 dark:border-slate-700 text-xs">
-                <span class="text-[11px] text-slate-400 font-medium px-1 flex items-center gap-0.5">
-                  <span>🔤</span>
-                  <span>字号</span>
-                </span>
-                <button onclick="app.setQuestionFontSize('normal')" title="标准字号 (15px)" class="px-2 py-0.5 rounded text-xs transition ${this.questionFontSize === 'normal' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">标准</button>
-                <button onclick="app.setQuestionFontSize('medium')" title="适中大字 (17px)" class="px-2 py-0.5 rounded text-xs transition ${(this.questionFontSize || 'medium') === 'medium' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">适中</button>
-                <button onclick="app.setQuestionFontSize('large')" title="清晰特大 (19px)" class="px-2 py-0.5 rounded text-xs transition ${this.questionFontSize === 'large' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">特大</button>
-              </div>
             </div>
 
             <div class="relative w-full sm:w-64">
@@ -3025,7 +3032,7 @@ class App {
             ? q.mcqOptionsList.map(o => o.key)
             : Object.keys(q.options);
 
-          const stemHtml = q.stem ? `<div class="mb-3 font-medium text-slate-800 dark:text-slate-200">${window.markdownRenderer.render(q.stem)}</div>` : '';
+          const stemHtml = q.stem ? `<div class="mb-3 font-medium text-slate-800 dark:text-slate-200 markdown-body question-stem-text">${window.markdownRenderer.render(q.stem)}</div>` : '';
           const optionsHtml = optKeys.map(l => {
             const isCorrect = isSolutionExpanded && correctList.includes(l);
             const isMy = isSolutionExpanded && myList.includes(l);
@@ -3036,10 +3043,10 @@ class App {
               cardStyle = 'border-rose-300 dark:border-rose-800 bg-rose-50/70 dark:bg-rose-950/30 text-rose-900 dark:text-rose-200';
             }
             return `
-              <div class="p-2.5 rounded-xl border ${cardStyle} flex items-start gap-2.5 text-xs">
-                <span class="w-5 h-5 rounded-md font-mono font-bold flex items-center justify-center shrink-0 ${isCorrect ? 'bg-emerald-600 text-white' : (isMy ? 'bg-rose-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200')}">${l}</span>
-                <div class="flex-1 min-w-0">
-                  <span>${window.markdownRenderer.render(q.options[l] || '')}</span>
+              <div class="p-3 rounded-xl border ${cardStyle} flex items-center gap-2.5">
+                <span class="w-6 h-6 rounded-md font-mono font-bold text-xs flex items-center justify-center shrink-0 ${isCorrect ? 'bg-emerald-600 text-white' : (isMy ? 'bg-rose-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200')}">${l}</span>
+                <div class="flex-1 min-w-0 markdown-body question-option-text leading-snug">
+                  ${window.markdownRenderer.render(q.options[l] || '')}
                 </div>
                 ${isCorrect ? '<span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">✓ 正确答案</span>' : ''}
                 ${isMy ? '<span class="text-[10px] font-bold text-rose-500 shrink-0">✕ 当时错选</span>' : ''}
@@ -3236,6 +3243,7 @@ class App {
   setQuestionFontSize(size) {
     this.questionFontSize = size;
     localStorage.setItem('question_font_size', size);
+    this.renderHeader();
     this.render();
   }
 

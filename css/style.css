@@ -175,6 +175,7 @@ html {
 .q-font-normal .question-part-text,
 .q-font-normal .question-stem-text,
 .q-font-normal .question-content-text,
+.q-font-normal .question-option-text,
 .q-font-normal .question-solution-text {
   font-size: 0.935rem !important; /* ~15px */
   line-height: 1.65 !important;
@@ -182,6 +183,7 @@ html {
 .q-font-normal .question-part-text .katex,
 .q-font-normal .question-stem-text .katex,
 .q-font-normal .question-content-text .katex,
+.q-font-normal .question-option-text .katex,
 .q-font-normal .question-solution-text .katex {
   font-size: 1.05em !important;
 }
@@ -189,6 +191,7 @@ html {
 .q-font-medium .question-part-text,
 .q-font-medium .question-stem-text,
 .q-font-medium .question-content-text,
+.q-font-medium .question-option-text,
 .q-font-medium .question-solution-text {
   font-size: 1.065rem !important; /* ~17px */
   line-height: 1.75 !important;
@@ -196,6 +199,7 @@ html {
 .q-font-medium .question-part-text .katex,
 .q-font-medium .question-stem-text .katex,
 .q-font-medium .question-content-text .katex,
+.q-font-medium .question-option-text .katex,
 .q-font-medium .question-solution-text .katex {
   font-size: 1.12em !important;
 }
@@ -203,6 +207,7 @@ html {
 .q-font-large .question-part-text,
 .q-font-large .question-stem-text,
 .q-font-large .question-content-text,
+.q-font-large .question-option-text,
 .q-font-large .question-solution-text {
   font-size: 1.2rem !important; /* ~19.2px */
   line-height: 1.85 !important;
@@ -210,8 +215,13 @@ html {
 .q-font-large .question-part-text .katex,
 .q-font-large .question-stem-text .katex,
 .q-font-large .question-content-text .katex,
+.q-font-large .question-option-text .katex,
 .q-font-large .question-solution-text .katex {
   font-size: 1.18em !important;
+}
+
+.question-option-text p {
+  margin: 0 !important;
 }
 
 /* 试卷字号规则 */
@@ -405,6 +415,7 @@ body {
   .q-font-normal .question-part-text,
   .q-font-normal .question-stem-text,
   .q-font-normal .question-content-text,
+  .q-font-normal .question-option-text,
   .q-font-normal .question-solution-text {
     font-size: 0.9rem !important;
   }
