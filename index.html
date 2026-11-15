@@ -52,11 +52,11 @@
   <header id="top-nav" class="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-xs">
     <div class="max-w-[1560px] mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
       <!-- 品牌 Logo -->
-      <div class="flex items-center gap-2.5 sm:gap-3 cursor-pointer shrink-0" onclick="app.switchTab('questions')">
-        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-black text-lg sm:text-xl shadow-md shadow-indigo-500/25 shrink-0">
+      <div class="flex items-center gap-2 sm:gap-3 cursor-pointer shrink-0" onclick="app.switchTab('questions')">
+        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-black text-base sm:text-xl shadow-md shadow-indigo-500/25 shrink-0">
           📖
         </div>
-        <div>
+        <div class="hidden sm:block">
           <h1 class="text-sm sm:text-base font-black tracking-tight text-slate-900 dark:text-slate-100 flex items-center whitespace-nowrap">
             <span>个人工作台</span>
           </h1>
@@ -69,16 +69,16 @@
       </nav>
 
       <!-- 右侧操作区：字号调节 + 云同步状态 + 快速录入 + 主题切换 -->
-      <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0 whitespace-nowrap">
+      <div class="flex items-center gap-1 sm:gap-2.5 shrink-0 whitespace-nowrap">
         <span id="header-font-size-control"></span>
         <span id="cloud-sync-pill"></span>
-        <button onclick="app.resetEditorForm(); app.switchTab('add')" class="whitespace-nowrap shrink-0 flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-500/30 transition transform hover:scale-102">
+        <button onclick="app.resetEditorForm(); app.switchTab('add')" class="whitespace-nowrap shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-500/30 transition transform hover:scale-102">
           <span>➕</span>
           <span class="hidden sm:inline">录入错题</span>
         </button>
 
         <!-- 深浅色主题切换 -->
-        <button id="theme-toggle-btn" onclick="app.toggleTheme()" title="切换深色/浅色外观" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center justify-center text-base sm:text-lg shrink-0">
+        <button id="theme-toggle-btn" onclick="app.toggleTheme()" title="切换深色/浅色外观" class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center justify-center text-sm sm:text-lg shrink-0">
           <span id="theme-toggle-icon">🌙</span>
         </button>
       </div>

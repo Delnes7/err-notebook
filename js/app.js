@@ -2734,13 +2734,13 @@ class App {
     if (syncPillEl && window.cloudSync) {
       const s = window.cloudSync.getStatusSummary();
       if (!s.loggedIn) {
-        syncPillEl.innerHTML = `<button type="button" onclick="app.switchTab('settings')" class="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-700 transition" title="登录账号以开启多设备云同步">☁️ 未登录</button>`;
+        syncPillEl.innerHTML = `<button type="button" onclick="app.switchTab('settings')" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-700 transition" title="登录账号以开启多设备云同步">☁️ 未登录</button>`;
       } else if (s.syncStatus === 'syncing') {
-        syncPillEl.innerHTML = `<button type="button" disabled class="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 animate-pulse">☁️ 同步中...</button>`;
+        syncPillEl.innerHTML = `<button type="button" disabled class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 animate-pulse">☁️ 同步中...</button>`;
       } else if (s.syncStatus === 'error') {
-        syncPillEl.innerHTML = `<button type="button" onclick="app.cloudSyncNow()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 hover:bg-rose-100 transition" title="${this.escapeHtml(s.lastError || '同步出错，点击重试')}">☁️ 同步失败</button>`;
+        syncPillEl.innerHTML = `<button type="button" onclick="app.cloudSyncNow()" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[11px] font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 hover:bg-rose-100 transition" title="${this.escapeHtml(s.lastError || '同步出错，点击重试')}">☁️ 同步失败</button>`;
       } else {
-        syncPillEl.innerHTML = `<button type="button" onclick="app.cloudSyncNow()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition" title="点击立即双向同步 (${this.escapeHtml(s.email)})">☁️ 已同步</button>`;
+        syncPillEl.innerHTML = `<button type="button" onclick="app.cloudSyncNow()" class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition" title="点击立即双向同步 (${this.escapeHtml(s.email)})">☁️ 已同步</button>`;
       }
     }
   }
@@ -2780,7 +2780,7 @@ class App {
     return `
       <div class="space-y-6">
         <!-- 统计看板 -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 gap-4">
           <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 flex items-center justify-center text-xl">📚</div>
             <div>
@@ -2789,24 +2789,10 @@ class App {
             </div>
           </div>
           <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center text-xl">🔴</div>
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center text-xl">📑</div>
             <div>
-              <div class="text-xs text-slate-500 font-medium">待攻克重点</div>
-              <div class="text-2xl font-black text-rose-600">${needWorkCount}</div>
-            </div>
-          </div>
-          <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center text-xl">🟡</div>
-            <div>
-              <div class="text-xs text-slate-500 font-medium">巩固练习中</div>
-              <div class="text-2xl font-black text-amber-600">${learningCount}</div>
-            </div>
-          </div>
-          <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center text-xl">🟢</div>
-            <div>
-              <div class="text-xs text-slate-500 font-medium">已攻克掌握</div>
-              <div class="text-2xl font-black text-emerald-600">${masteredCount}</div>
+              <div class="text-xs text-slate-500 font-medium">已选重练</div>
+              <div class="text-2xl font-black text-emerald-600">${window.practicePaperEngine.getSelectedCount()}</div>
             </div>
           </div>
         </div>
@@ -2822,17 +2808,9 @@ class App {
               ${this.renderFilterUnitDropdownHtml(unitNameMap)}
               ${this.renderFilterExamDropdownHtml(examMap, subMap)}
 
-              <select onchange="app.setFilter('mastery', this.value)" class="px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none">
-                <option value="all" ${this.filter.mastery === 'all' ? 'selected' : ''}>所有掌握状态</option>
-                <option value="0" ${this.filter.mastery === '0' ? 'selected' : ''}>🔴 仅看待攻克</option>
-                <option value="1" ${this.filter.mastery === '1' ? 'selected' : ''}>🟡 仅看巩固中</option>
-                <option value="2" ${this.filter.mastery === '2' ? 'selected' : ''}>🟢 仅看已攻克</option>
-              </select>
-
               <select onchange="app.setFilter('sortBy', this.value)" class="px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none">
                 <option value="newest" ${this.filter.sortBy === 'newest' ? 'selected' : ''}>最新录入</option>
                 <option value="oldest" ${this.filter.sortBy === 'oldest' ? 'selected' : ''}>最早录入</option>
-                <option value="mastery" ${this.filter.sortBy === 'mastery' ? 'selected' : ''}>优先待攻克题</option>
               </select>
             </div>
 
@@ -3134,10 +3112,6 @@ class App {
                   <span class="px-2 py-0.5 rounded-md text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 border border-indigo-200/50">📋 复合大题 (${q.parts.length}问)</span>
                   ${wrongParts.length > 0 ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 border border-rose-200/50">错在: ${wrongParts.map(p => p.label).join('、')}</span>` : ''}
                 ` : '')}
-
-                <button onclick="app.toggleQuestionMastery('${q.id}')" title="点击切换掌握状态" class="px-2.5 py-0.5 rounded-full text-xs font-semibold border ${currentMastery.bg} cursor-pointer transition hover:scale-105">
-                  ${currentMastery.label}
-                </button>
 
                 ${exam ? `
                   <span class="text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
@@ -3528,7 +3502,7 @@ class App {
             `}
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- 所属学科 -->
             <div>
               <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5">所属学科 *</label>
@@ -3547,16 +3521,6 @@ class App {
               </div>
               <select id="editor-unit" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 ${unitOptions}
-              </select>
-            </div>
-
-            <!-- 初始掌握度 -->
-            <div>
-              <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5">掌握程度评级</label>
-              <select id="editor-mastery" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                <option value="0" ${this.form.mastery === 0 ? 'selected' : ''}>🔴 待攻克 / 重点重做</option>
-                <option value="1" ${this.form.mastery === 1 ? 'selected' : ''}>🟡 巩固中 / 略有模糊</option>
-                <option value="2" ${this.form.mastery === 2 ? 'selected' : ''}>🟢 已攻克 / 熟练掌握</option>
               </select>
             </div>
           </div>
@@ -4815,8 +4779,8 @@ class App {
 
       return `
         <div class="card-hover bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-4">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="space-y-1.5 flex-1 min-w-0 sm:min-w-[240px]">
+          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div class="space-y-1.5 w-full sm:flex-1 min-w-0">
               <div class="flex flex-wrap items-center gap-1.5">
                 ${sub ? `<span class="px-2.5 py-0.5 rounded-md text-xs font-bold text-white shadow-xs" style="background-color: ${sub.color}">${sub.name}</span>` : ''}
                 <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">Summative</span>
@@ -5533,11 +5497,8 @@ class App {
               </div>
             </div>
 
-            <button onclick="app.generateUnitPracticePaper(0)" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-xs transition">
-              🔴 组卷：所选单元「待攻克」错题
-            </button>
             <button onclick="app.generateUnitPracticePaper(null)" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-xs transition">
-              📚 组卷：所选单元「全部」错题
+              📚 组卷：所选单元错题
             </button>
           </div>
 
