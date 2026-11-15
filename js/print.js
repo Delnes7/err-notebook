@@ -10,9 +10,9 @@ class PracticePaperEngine {
       title: 'A Level / CNCC 错题复盘与重做强化试卷',
       subtitle: '姓名：__________   班级：__________   用时：______分钟   得分：__________',
       fontSize: 'medium',      // 'small' (9.5pt), 'medium' (10.5pt), 'large' (12pt)
-      spacing: 'compact',      // 'none' (0px紧凑无留白), 'compact' (40px), 'medium' (80px), 'large' (150px)
+      spacing: 'compact',      // 'none' (0px紧凑无留白), 'compact' (80px), 'medium' (160px), 'large' (300px)
       includeSolutions: false, // 是否在卷末附带参考解析
-      showExamInfo: true,      // 是否显示题目来源考试
+      showExamInfo: false,     // 组卷不显示题目来源考试
       showReasons: false,      // 题目是否显示错因
       showUnitBadge: true      // 是否显示所属单元标签
     };
@@ -92,16 +92,16 @@ class PracticePaperEngine {
     });
 
     const showWriteArea = this.options.spacing !== 'none';
-    let spacingHeight = '80px';
-    if (this.options.spacing === 'compact') spacingHeight = '40px';
-    else if (this.options.spacing === 'large') spacingHeight = '150px';
+    let spacingHeight = '160px';
+    if (this.options.spacing === 'compact') spacingHeight = '80px';
+    else if (this.options.spacing === 'large') spacingHeight = '300px';
 
     // 题目列表
     let questionsHtml = '';
     questions.forEach((q, idx) => {
       const sub = subMap.get(q.subjectId);
-      const exam = examMap.get(q.examId);
       const unitName = unitNameMap.get(q.unitId);
+      const isMcq = q.questionType === 'multiple_choice';
       const renderedContent = window.markdownRenderer.render(q.content);
 
       questionsHtml += `
@@ -113,10 +113,8 @@ class PracticePaperEngine {
               </span>
               ${sub ? `<span class="px-2 py-0.5 rounded text-xs font-semibold text-white" style="background-color: ${sub.color}">${sub.name}</span>` : ''}
               ${this.options.showUnitBadge && unitName ? `<span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">单元: ${unitName}</span>` : ''}
-              ${q.paperCode ? `<span class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-amber-50 text-amber-800 border border-amber-300">CIE: ${q.paperCode}</span>` : ''}
-              ${q.title ? `<span class="font-bold text-slate-800 dark:text-slate-200 text-sm ml-1">${q.title}</span>` : ''}
+              ${q.paperCode ? `<span class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-amber-50 text-amber-800 border border-amber-300">${q.paperCode}</span>` : ''}
             </div>
-            ${this.options.showExamInfo && exam ? `<span class="text-xs text-slate-500 whitespace-nowrap">来源：${exam.title}</span>` : ''}
           </div>
 
           <!-- 题目正文 -->
@@ -124,8 +122,8 @@ class PracticePaperEngine {
             ${renderedContent}
           </div>
 
-          <!-- 答题演算留白区域 -->
-          ${showWriteArea ? `
+          <!-- 答题演算留白区域（选择题不需要作答区域） -->
+          ${showWriteArea && !isMcq ? `
             <div class="practice-write-area ml-8 mt-3 rounded-lg p-2.5 text-xs text-slate-400 select-none flex flex-col justify-between" style="min-height: ${spacingHeight};">
               <span class="text-[10px] font-mono tracking-wider opacity-60">【答题与演算留白区】</span>
               <div class="text-right text-[10px] font-mono opacity-40">得分：______</div>
@@ -153,8 +151,8 @@ class PracticePaperEngine {
           <div class="print-avoid-break mb-6 pb-4 border-b border-slate-200">
             <div class="flex items-center gap-2 font-bold text-slate-900 mb-1.5">
               <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center">${idx + 1}</span>
-              <span class="text-sm">第 ${idx + 1} 题解析 ${q.title ? `(${q.title})` : ''}</span>
-              ${q.paperCode ? `<span class="text-xs font-mono font-bold bg-amber-50 text-amber-800 border border-amber-300 px-1.5 py-0.5 rounded ml-1">[CIE: ${q.paperCode}]</span>` : ''}
+              <span class="text-sm">第 ${idx + 1} 题解析</span>
+              ${q.paperCode ? `<span class="text-xs font-mono font-bold bg-amber-50 text-amber-800 border border-amber-300 px-1.5 py-0.5 rounded ml-1">${q.paperCode}</span>` : ''}
               ${unitName ? `<span class="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded">[${unitName}]</span>` : ''}
             </div>
             ${q.reasons && q.reasons.length > 0 ? `
