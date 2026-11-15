@@ -1801,9 +1801,9 @@ class App {
               ${subtitle ? `<p class="text-xs text-slate-500 mt-0.5">${subtitle}</p>` : ''}
             </div>
           </div>
-          <div class="flex items-center gap-2 shrink-0">
-            ${extraActionHtml ? `<div onclick="event.stopPropagation()">${extraActionHtml}</div>` : ''}
-            <button type="button" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-500 hover:text-indigo-600 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 transition">
+          <div class="w-full sm:w-auto flex flex-wrap items-center justify-between sm:justify-end gap-2 min-w-0">
+            ${extraActionHtml ? `<div class="min-w-0 max-w-full" onclick="event.stopPropagation()">${extraActionHtml}</div>` : ''}
+            <button type="button" class="shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-500 hover:text-indigo-600 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 transition">
               <span>${isCollapsed ? '展开' : '收起'}</span>
               <span class="chevron-rotate ${isCollapsed ? 'collapsed' : 'expanded'} text-[10px]">▼</span>
             </button>
@@ -4807,33 +4807,35 @@ class App {
           </div>
 
           <!-- 核心成绩与折算展示卡 (大号 Grade 徽章 + 卷面分 + 百分比) -->
-          <div class="bg-gradient-to-r from-slate-50 to-indigo-50/30 dark:from-slate-800/50 dark:to-indigo-950/20 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
-            <!-- 卷面得分 -->
-            <div>
-              <span class="text-[11px] text-slate-400 uppercase tracking-wider block">原始分 / 满分 (Raw Score)</span>
-              <div class="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono">
-                ${score} <span class="text-sm font-normal text-slate-400">/ ${maxScore} pts</span>
+          <div class="bg-gradient-to-r from-slate-50 to-indigo-50/30 dark:from-slate-800/50 dark:to-indigo-950/20 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 sm:gap-5">
+            <div class="flex items-start justify-between gap-3 sm:contents">
+              <!-- 卷面得分 -->
+              <div class="min-w-0 sm:order-1">
+                <span class="text-[11px] text-slate-400 uppercase tracking-wider block">原始分 / 满分 (Raw Score)</span>
+                <div class="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono leading-tight mt-0.5">
+                  ${score} <span class="text-sm font-normal text-slate-400">/ ${maxScore} pts</span>
+                </div>
+                ${isCurved && rawPct !== null ? `<span class="text-[11px] text-slate-400 font-mono">原始折算：${rawPct}%</span>` : ''}
               </div>
-              ${isCurved && rawPct !== null ? `<span class="text-[11px] text-slate-400 font-mono">原始折算：${rawPct}%</span>` : ''}
+
+              <!-- 等级 Mark 大徽章 -->
+              <div class="flex flex-col items-end shrink-0 sm:order-3">
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Task Grade</span>
+                <span class="inline-flex items-center px-3.5 py-1 rounded-xl text-sm font-black shadow-sm ${gradeBadgeStyle}">
+                  Grade ${grade}
+                </span>
+              </div>
             </div>
 
             <!-- 百分制得分率与进度条 -->
-            <div class="flex-1 max-w-xs space-y-1">
-              <div class="flex justify-between text-xs">
+            <div class="w-full sm:flex-1 sm:max-w-xs sm:order-2 space-y-1.5 pt-2.5 sm:pt-0 border-t border-slate-200/70 dark:border-slate-700/60 sm:border-t-0">
+              <div class="flex items-center justify-between text-xs gap-2">
                 <span class="${isCurved ? 'text-violet-600 dark:text-violet-400 font-semibold' : 'text-slate-500'}">${isCurved ? 'Curve 后有效成绩' : '折算百分制'}</span>
                 <span class="font-bold text-slate-800 dark:text-slate-200 font-mono">${percentage}%</span>
               </div>
               <div class="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                 <div class="h-full rounded-full transition-all duration-500 ${percentage >= 89.5 ? 'bg-emerald-500' : (percentage >= 79.5 ? 'bg-blue-500' : 'bg-indigo-500')}" style="width: ${Math.min(100, Math.max(0, percentage))}%"></div>
               </div>
-            </div>
-
-            <!-- 等级 Mark 大徽章 -->
-            <div class="text-right">
-              <span class="text-[10px] text-slate-400 block mb-0.5">Task Grade</span>
-              <span class="inline-block px-3.5 py-1 rounded-xl text-sm font-black shadow-md ${gradeBadgeStyle}">
-                Grade ${grade}
-              </span>
             </div>
           </div>
 
@@ -5060,12 +5062,12 @@ class App {
       title: `历次小考记录明细 (${filteredExams.length})`,
       icon: '📋',
       extraActionHtml: `
-        <div class="flex flex-wrap items-center gap-1.5 text-xs">
+        <div class="flex flex-wrap items-center gap-1.5 text-xs max-w-full">
           <select onchange="app.setExamFilter('subjectId', this.value)" class="px-2.5 py-1 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold focus:outline-none">
             <option value="all">全部学科</option>
             ${this.subjects.map(s => `<option value="${s.id}" ${this.examFilter.subjectId === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
           </select>
-          <div class="flex flex-wrap items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/70 dark:border-slate-700/70">
+          <div class="flex flex-wrap items-center gap-1 max-w-full bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/70 dark:border-slate-700/70">
             <button type="button" onclick="app.toggleExamListCategory('all')" class="px-2 py-0.5 rounded-lg text-[11px] font-semibold transition cursor-pointer ${isAllCats ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'}">全维度</button>
             ${[
               { id: 'attainment', label: 'Attainment' },
@@ -5505,33 +5507,35 @@ class App {
           ${selectedChipsHtml}
         </div>
 
-        <div class="bg-white dark:bg-slate-900 px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap items-center gap-6 text-xs text-slate-600 dark:text-slate-300">
+        <div class="bg-white dark:bg-slate-900 px-4 sm:px-5 py-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-5 text-xs text-slate-600 dark:text-slate-300">
           <!-- 字号调节 -->
-          <div class="flex items-center gap-2">
-            <span class="font-bold">排版字号：</span>
-            <label class="cursor-pointer inline-flex items-center gap-1"><input type="radio" name="paper-fontsize" value="small" ${window.practicePaperEngine.options.fontSize === 'small' ? 'checked' : ''} onchange="app.setPracticeOption('fontSize', 'small')" /> 紧凑小号 (9.5pt)</label>
-            <label class="cursor-pointer inline-flex items-center gap-1"><input type="radio" name="paper-fontsize" value="medium" ${(window.practicePaperEngine.options.fontSize || 'medium') === 'medium' ? 'checked' : ''} onchange="app.setPracticeOption('fontSize', 'medium')" /> 标准中号 (10.5pt)</label>
-            <label class="cursor-pointer inline-flex items-center gap-1"><input type="radio" name="paper-fontsize" value="large" ${window.practicePaperEngine.options.fontSize === 'large' ? 'checked' : ''} onchange="app.setPracticeOption('fontSize', 'large')" /> 清晰大号 (12pt)</label>
+          <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span class="font-bold text-slate-700 dark:text-slate-200 shrink-0">排版字号：</span>
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 whitespace-nowrap"><input type="radio" name="paper-fontsize" value="small" ${window.practicePaperEngine.options.fontSize === 'small' ? 'checked' : ''} onchange="app.setPracticeOption('fontSize', 'small')" /> 紧凑小号 (9.5pt)</label>
+              <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 whitespace-nowrap"><input type="radio" name="paper-fontsize" value="medium" ${(window.practicePaperEngine.options.fontSize || 'medium') === 'medium' ? 'checked' : ''} onchange="app.setPracticeOption('fontSize', 'medium')" /> 标准中号 (10.5pt)</label>
+              <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 whitespace-nowrap"><input type="radio" name="paper-fontsize" value="large" ${window.practicePaperEngine.options.fontSize === 'large' ? 'checked' : ''} onchange="app.setPracticeOption('fontSize', 'large')" /> 清晰大号 (12pt)</label>
+            </div>
           </div>
 
           <!-- 作答留白 -->
-          <div class="flex items-center gap-2">
-            <span class="font-bold">作答留白区域：</span>
-            <label class="cursor-pointer inline-flex items-center gap-1"><input type="radio" name="paper-spacing" value="none" ${window.practicePaperEngine.options.spacing === 'none' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'none')" /> 无需留白 (紧凑最省纸)</label>
-            <label class="cursor-pointer inline-flex items-center gap-1"><input type="radio" name="paper-spacing" value="compact" ${window.practicePaperEngine.options.spacing === 'compact' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'compact')" /> 紧凑 (40px)</label>
-            <label class="cursor-pointer inline-flex items-center gap-1"><input type="radio" name="paper-spacing" value="medium" ${window.practicePaperEngine.options.spacing === 'medium' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'medium')" /> 标准 (80px)</label>
-            <label class="cursor-pointer inline-flex items-center gap-1"><input type="radio" name="paper-spacing" value="large" ${window.practicePaperEngine.options.spacing === 'large' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'large')" /> 大题演算 (150px)</label>
+          <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span class="font-bold text-slate-700 dark:text-slate-200 shrink-0">作答留白区域：</span>
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 whitespace-nowrap"><input type="radio" name="paper-spacing" value="none" ${window.practicePaperEngine.options.spacing === 'none' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'none')" /> 无需留白 (紧凑省纸)</label>
+              <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 whitespace-nowrap"><input type="radio" name="paper-spacing" value="compact" ${window.practicePaperEngine.options.spacing === 'compact' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'compact')" /> 紧凑 (40px)</label>
+              <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 whitespace-nowrap"><input type="radio" name="paper-spacing" value="medium" ${window.practicePaperEngine.options.spacing === 'medium' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'medium')" /> 标准 (80px)</label>
+              <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 whitespace-nowrap"><input type="radio" name="paper-spacing" value="large" ${window.practicePaperEngine.options.spacing === 'large' ? 'checked' : ''} onchange="app.setPracticeOption('spacing', 'large')" /> 大题演算 (150px)</label>
+            </div>
           </div>
 
-          <div class="flex items-center gap-2">
-            <label class="cursor-pointer flex items-center gap-1.5 font-bold">
+          <div class="flex flex-wrap items-center gap-4 pt-1 sm:pt-0 border-t border-slate-100 dark:border-slate-800 sm:border-t-0">
+            <label class="cursor-pointer inline-flex items-center gap-1.5 font-bold">
               <input type="checkbox" ${window.practicePaperEngine.options.includeSolutions ? 'checked' : ''} onchange="app.setPracticeOption('includeSolutions', this.checked)" class="rounded text-indigo-600" />
               <span>卷末另起一页附带 Mark Scheme 详细解析</span>
             </label>
-          </div>
 
-          <div class="flex items-center gap-2">
-            <label class="cursor-pointer flex items-center gap-1.5">
+            <label class="cursor-pointer inline-flex items-center gap-1.5">
               <input type="checkbox" ${window.practicePaperEngine.options.showUnitBadge ? 'checked' : ''} onchange="app.setPracticeOption('showUnitBadge', this.checked)" class="rounded text-indigo-600" />
               <span>题目显示单元标签</span>
             </label>

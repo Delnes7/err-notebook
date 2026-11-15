@@ -95,8 +95,13 @@
         return;
       }
 
+      const isMobile = (typeof window !== 'undefined' && window.innerWidth < 640);
       const isSingleSubject = filterSubjectId !== 'all';
       const labels = sortedExams.map(e => {
+        if (isMobile) {
+          // 手机端参考股票折线图：X 轴仅显示简洁日期 (MM-DD)，完整标题在点击/悬浮 tooltip 中查看
+          return e.date ? e.date.slice(5) : (e.title ? e.title.slice(0, 6) : '测验');
+        }
         if (isSingleSubject) {
           // 单科模式：下方显示考试的名字（标题）
           return e.title || (e.date ? e.date.slice(5) : '测验');
@@ -126,7 +131,7 @@
         label: aStarLabel,
         data: sortedExams.map(() => aStarLineVal),
         borderColor: '#10b981',
-        borderWidth: 1.5,
+        borderWidth: isMobile ? 1.2 : 1.5,
         borderDash: [5, 4],
         pointRadius: 0,
         fill: false,
@@ -137,33 +142,38 @@
         label: aLabel,
         data: sortedExams.map(() => aLineVal),
         borderColor: '#3b82f6',
-        borderWidth: 1.5,
+        borderWidth: isMobile ? 1.2 : 1.5,
         borderDash: [4, 4],
         pointRadius: 0,
         fill: false,
         tension: 0
       };
 
+      const ctx = canvas.getContext('2d');
+      const areaGradient = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight || 260);
+      areaGradient.addColorStop(0, `${mainColor}38`);
+      areaGradient.addColorStop(1, `${mainColor}00`);
+
       const scoreDataset = {
         label: activeSub ? `${activeSub.name} 成绩得分率` : '历次小考得分率',
         data: dataPoints,
         borderColor: mainColor,
-        backgroundColor: `${mainColor}20`,
-        borderWidth: 3,
+        backgroundColor: areaGradient,
+        borderWidth: isMobile ? 2.5 : 3,
         pointBackgroundColor: sortedExams.map(e => {
           if (e.percentage >= aStarLineVal) return '#10b981';
           if (e.percentage >= aLineVal) return '#3b82f6';
           return mainColor;
         }),
         pointBorderColor: '#ffffff',
-        pointBorderWidth: 2,
-        pointRadius: 5,
+        pointBorderWidth: isMobile ? 1.5 : 2,
+        pointRadius: isMobile ? (sortedExams.length > 10 ? 2.5 : 3.5) : 5,
+        pointHitRadius: 16,
         pointHoverRadius: 7,
         fill: true,
         tension: 0.35
       };
 
-      const ctx = canvas.getContext('2d');
       this.instances[canvasId] = new Chart(ctx, {
         type: 'line',
         data: {
@@ -182,9 +192,10 @@
               position: 'top',
               labels: {
                 color: colors.textColor,
-                font: { size: 11, weight: '600' },
-                boxWidth: 14,
-                boxHeight: 14,
+                font: { size: isMobile ? 10 : 11, weight: '600' },
+                boxWidth: isMobile ? 8 : 14,
+                boxHeight: isMobile ? 8 : 14,
+                padding: isMobile ? 8 : 12,
                 usePointStyle: true
               }
             },
@@ -220,13 +231,17 @@
           },
           scales: {
             x: {
-              grid: { color: colors.gridColor },
+              grid: {
+                display: !isMobile,
+                color: colors.gridColor
+              },
               ticks: {
                 color: colors.mutedText,
                 font: { size: 10 },
-                maxRotation: 35,
+                maxRotation: isMobile ? 0 : 35,
                 minRotation: 0,
                 autoSkip: true,
+                maxTicksLimit: isMobile ? 5 : 12,
                 callback: function(val) {
                   const label = this.getLabelForValue(val);
                   if (typeof label === 'string' && label.length > 14) {
