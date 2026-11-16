@@ -81,36 +81,52 @@ class CloudSyncManager {
     return !!(this.client && this.user);
   }
 
+  _wrapNetworkError(err) {
+    const msg = (err && err.message) ? String(err.message) : String(err || '未知错误');
+    if (/^(Load failed|Failed to fetch|NetworkError)/i.test(msg)) {
+      return new Error(`无法连接 Supabase 云端服务器 (${msg})，请检查当前设备网络，或确认已开启可访问 supabase.co 的代理/VPN`);
+    }
+    return err instanceof Error ? err : new Error(msg);
+  }
+
   async signUp(email, password) {
     await this.init();
     if (!this.client) throw new Error('Supabase SDK 尚未加载完成，请检查网络或刷新重试');
     const redirectTo = window.location.origin && window.location.origin !== 'null'
       ? `${window.location.origin}${window.location.pathname}`
       : undefined;
-    const { data, error } = await this.client.auth.signUp({
-      email: String(email || '').trim(),
-      password: String(password || ''),
-      options: redirectTo ? { emailRedirectTo: redirectTo } : undefined
-    });
-    if (error) throw error;
-    if (data && data.session && data.session.user) {
-      this.user = data.session.user;
-      this._notify();
+    try {
+      const { data, error } = await this.client.auth.signUp({
+        email: String(email || '').trim(),
+        password: String(password || ''),
+        options: redirectTo ? { emailRedirectTo: redirectTo } : undefined
+      });
+      if (error) throw error;
+      if (data && data.session && data.session.user) {
+        this.user = data.session.user;
+        this._notify();
+      }
+      return data;
+    } catch (err) {
+      throw this._wrapNetworkError(err);
     }
-    return data;
   }
 
   async signIn(email, password) {
     await this.init();
     if (!this.client) throw new Error('Supabase SDK 尚未加载完成，请检查网络或刷新重试');
-    const { data, error } = await this.client.auth.signInWithPassword({
-      email: String(email || '').trim(),
-      password: String(password || '')
-    });
-    if (error) throw error;
-    this.user = data && data.user ? data.user : null;
-    this._notify();
-    return data;
+    try {
+      const { data, error } = await this.client.auth.signInWithPassword({
+        email: String(email || '').trim(),
+        password: String(password || '')
+      });
+      if (error) throw error;
+      this.user = data && data.user ? data.user : null;
+      this._notify();
+      return data;
+    } catch (err) {
+      throw this._wrapNetworkError(err);
+    }
   }
 
   async signOut() {
