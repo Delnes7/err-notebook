@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 .env
+
+# 本地 IDE 对话可能包含个人信息
+reference/antigravity/
