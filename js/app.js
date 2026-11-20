@@ -597,12 +597,27 @@ class App {
   }
 
   escapeHtml(text) {
-    return String(text || '')
+    return String(text ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  inlineArg(value) {
+    return this.escapeHtml(JSON.stringify(String(value ?? '')));
+  }
+
+  safeColor(value) {
+    return /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(String(value || '')) ? value : '#6366f1';
+  }
+
+  safeLink(value) {
+    try {
+      const url = new URL(String(value));
+      return ['https:', 'http:'].includes(url.protocol) ? this.escapeHtml(url.href) : '#';
+    } catch (_) { return '#'; }
   }
 
   toggleDropdown(name) {
@@ -1101,10 +1116,10 @@ class App {
     ];
 
     const rowsHtml = safeRows.map((r, rIdx) => {
-      const qVal = (r.question || defaultQ).replace(/"/g, '&quot;');
-      const aVal = (r.answer || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      const mVal = (r.marks || '').replace(/"/g, '&quot;');
-      const gVal = (r.guidance || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const qVal = this.escapeHtml(r.question || defaultQ);
+      const aVal = this.escapeHtml(r.answer || '');
+      const mVal = this.escapeHtml(r.marks || '');
+      const gVal = this.escapeHtml(r.guidance || '');
 
       const onQ = isPart ? `app.updatePartMarkSchemeRow(${partIdx}, ${rIdx}, 'question', this.value)` : `app.updateMarkSchemeRow(${rIdx}, 'question', this.value)`;
       const onA = isPart ? `app.updatePartMarkSchemeRow(${partIdx}, ${rIdx}, 'answer', this.value)` : `app.updateMarkSchemeRow(${rIdx}, 'answer', this.value)`;
@@ -1209,7 +1224,7 @@ class App {
       targetRows = part.solutionRows && part.solutionRows.length > 0 ? part.solutionRows : [
         { question: part.label || '(a)', answer: '', marks: 'B1', guidance: '' }
       ];
-      title = `小问 ${part.label || '(a)'} 官方 Mark Scheme 评分细则与解题步骤`;
+      title = `小问 ${this.escapeHtml(part.label || '(a)')} 官方 Mark Scheme 评分细则与解题步骤`;
     } else {
       targetRows = this.form.markSchemeRows && this.form.markSchemeRows.length > 0 ? this.form.markSchemeRows : [
         { question: '(a)', answer: '', marks: 'B1', guidance: '' }
@@ -1238,17 +1253,17 @@ class App {
     }
 
     const rowsHtml = modalData.rows.map((r, rIdx) => {
-      const aVal = (r.answer || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      const mVal = (r.marks || '').replace(/"/g, '&quot;');
-      const gVal = (r.guidance || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const aVal = this.escapeHtml(r.answer || '');
+      const mVal = this.escapeHtml(r.marks || '');
+      const gVal = this.escapeHtml(r.guidance || '');
 
       return `
         <div class="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-          <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80">
+          <div class="mark-scheme-row-header flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800/80">
             <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2.5 py-1 rounded-lg">
               步骤 #${rIdx + 1}
             </span>
-            <div class="flex items-center gap-2">
+            <div class="mark-scheme-row-controls flex flex-wrap items-center gap-2">
               <span class="text-xs text-slate-400">评分代号：</span>
               <input type="text" list="cambridge-marks-list" value="${mVal}" oninput="app.updateModalMarkSchemeRow(${rIdx}, 'marks', this.value)" placeholder="如 B1, M1, A1" class="w-32 px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-center bg-slate-50 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500" />
               <button type="button" onclick="app.removeModalMarkSchemeRow(${rIdx})" class="px-2.5 py-1 text-xs text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition" title="删除此步">
@@ -1276,7 +1291,7 @@ class App {
     }).join('');
 
     container.innerHTML = `
-      <div class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="mark-scheme-modal fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-slate-100 dark:bg-slate-950 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
           <!-- 弹窗顶栏 -->
           <div class="p-5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
@@ -1818,10 +1833,10 @@ class App {
             <span class="text-xl shrink-0">${icon || '📁'}</span>
             <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
-                <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">${title}</h3>
+                <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">${this.escapeHtml(title)}</h3>
                 ${badge ? `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800">${badge}</span>` : ''}
               </div>
-              ${subtitle ? `<p class="text-xs text-slate-500 mt-0.5">${subtitle}</p>` : ''}
+              ${subtitle ? `<p class="text-xs text-slate-500 mt-0.5">${this.escapeHtml(subtitle)}</p>` : ''}
             </div>
           </div>
           <div class="w-full sm:w-auto flex flex-wrap items-center justify-between sm:justify-end gap-2 min-w-0">
@@ -1878,7 +1893,7 @@ class App {
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
               <span>📖</span>
-              <span>为【${currentSub.name}】添加新单元</span>
+              <span>为【${this.escapeHtml(currentSub.name)}】添加新单元</span>
             </h3>
             <button onclick="app.closeModal('quick-unit-modal')" class="text-slate-400 hover:text-slate-600 text-lg font-bold">&times;</button>
           </div>
@@ -1888,7 +1903,7 @@ class App {
           </div>
           <div class="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <button onclick="app.closeModal('quick-unit-modal')" class="px-3 py-1.5 rounded-lg text-xs text-slate-500 hover:bg-slate-100">取消</button>
-            <button onclick="app.saveQuickAddUnit('${currentSub.id}')" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs">确定添加</button>
+            <button onclick="app.saveQuickAddUnit(${this.inlineArg(currentSub.id)})" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs">确定添加</button>
           </div>
         </div>
       </div>
@@ -1949,9 +1964,9 @@ class App {
         <div class="flex items-center justify-between py-2 px-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
           <div class="flex items-center gap-2">
             <span class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center font-mono text-[10px]">${idx + 1}</span>
-            <span class="font-medium text-slate-800 dark:text-slate-200">${u.name}</span>
+            <span class="font-medium text-slate-800 dark:text-slate-200">${this.escapeHtml(u.name)}</span>
           </div>
-          <button onclick="app.deleteUnit('${sub.id}', '${u.id}')" class="text-rose-500 hover:text-rose-700 font-bold px-2 py-0.5">删除</button>
+          <button onclick="app.deleteUnit(${this.inlineArg(sub.id)}, ${this.inlineArg(u.id)})" class="text-rose-500 hover:text-rose-700 font-bold px-2 py-0.5">删除</button>
         </div>
       `).join('');
 
@@ -1961,8 +1976,8 @@ class App {
           <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
             <div>
               <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span class="w-3 h-3 rounded-full" style="background-color: ${sub.color}"></span>
-                <span>管理【${sub.name}】的课程单元</span>
+                <span class="w-3 h-3 rounded-full" style="background-color: ${this.safeColor(sub.color)}"></span>
+                <span>管理【${this.escapeHtml(sub.name)}】的课程单元</span>
               </h3>
               <p class="text-xs text-slate-400 mt-0.5">按单元/Topic划分模块，方便录入错题和单元专项组卷</p>
             </div>
@@ -1974,8 +1989,8 @@ class App {
           </div>
 
           <div class="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center gap-2">
-            <input type="text" id="new-unit-input" placeholder="输入新单元名称 (如: [P1] Differentiation)" class="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeydown="if(event.key==='Enter'){event.preventDefault();app.addUnit('${sub.id}');}" />
-            <button onclick="app.addUnit('${sub.id}')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold whitespace-nowrap">
+            <input type="text" id="new-unit-input" placeholder="输入新单元名称 (如: [P1] Differentiation)" class="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeydown="if(event.key==='Enter'){event.preventDefault();app.addUnit(${this.inlineArg(sub.id)});}" />
+            <button onclick="app.addUnit(${this.inlineArg(sub.id)})" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold whitespace-nowrap">
               + 添加单元
             </button>
           </div>
@@ -2039,8 +2054,8 @@ class App {
       const isChecked = selSet.has(u.id);
       return `
         <label class="flex items-center gap-2 p-1.5 rounded-lg transition cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800">
-          <input type="checkbox" name="modal-exam-unit-item" value="${u.id}" ${isChecked ? 'checked' : ''} onchange="app.updateExamModalUnitTip()" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4" />
-          <span class="text-xs font-medium text-slate-700 dark:text-slate-300">${u.name}</span>
+          <input type="checkbox" name="modal-exam-unit-item" value="${this.escapeHtml(u.id)}" ${isChecked ? 'checked' : ''} onchange="app.updateExamModalUnitTip()" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4" />
+          <span class="text-xs font-medium text-slate-700 dark:text-slate-300">${this.escapeHtml(u.name)}</span>
         </label>
       `;
     }).join('');
@@ -2136,7 +2151,7 @@ class App {
               <div>
                 <label class="block text-xs font-semibold text-slate-500 mb-1">所属学科 *</label>
                 <select id="modal-exam-subject" onchange="app.handleExamModalSubjectChange(this.value)" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                  ${this.subjects.map(s => `<option value="${s.id}" ${initialSub && initialSub.id === s.id ? 'selected' : ''}>${s.name} (${s.curriculum || 'A Level'})</option>`).join('')}
+                  ${this.subjects.map(s => `<option value="${this.escapeHtml(s.id)}" ${initialSub && initialSub.id === s.id ? 'selected' : ''}>${this.escapeHtml(s.name)} (${s.curriculum || 'A Level'})</option>`).join('')}
                 </select>
               </div>
 
@@ -2171,13 +2186,13 @@ class App {
             <!-- 项目/测验名称 -->
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">项目 / 测验名称 *</label>
-              <input type="text" id="modal-exam-title" value="${exam.title || ''}" placeholder="如：Learning Behaviour W8&9、MCQ Test - Units 1-4、Research/Excel Project" class="w-full px-3.5 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+              <input type="text" id="modal-exam-title" value="${this.escapeHtml(exam.title || '')}" placeholder="如：Learning Behaviour W8&9、MCQ Test - Units 1-4、Research/Excel Project" class="w-full px-3.5 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
             </div>
 
             <!-- 考核日期 -->
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">打分 / 考核日期</label>
-              <input type="date" id="modal-exam-date" value="${exam.date}" class="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+              <input type="date" id="modal-exam-date" value="${this.escapeHtml(exam.date)}" class="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
             </div>
 
             <!-- 🎯 卷面得分与自动换算区 (即时响应！) -->
@@ -2194,12 +2209,12 @@ class App {
                 <div class="flex items-end gap-2">
                   <div class="flex-1 min-w-0">
                     <label class="block text-[11px] text-slate-500 mb-1 whitespace-nowrap">原始分 (Raw) *</label>
-                    <input type="number" id="modal-exam-score" value="${exam.score !== undefined ? exam.score : ''}" placeholder="如 90" step="0.5" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" oninput="app.recalcModalExamScore()" />
+                    <input type="number" id="modal-exam-score" value="${this.escapeHtml(exam.score !== undefined ? exam.score : '')}" placeholder="如 90" step="0.5" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" oninput="app.recalcModalExamScore()" />
                   </div>
                   <span class="text-slate-400 text-lg pb-1.5 font-bold shrink-0">/</span>
                   <div class="flex-1 min-w-0">
                     <label class="block text-[11px] text-slate-500 mb-1 whitespace-nowrap">满分 (Max) *</label>
-                    <input type="number" id="modal-exam-max" value="${exam.maxScore !== undefined ? exam.maxScore : 100}" placeholder="如 100" step="0.5" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" oninput="app.recalcModalExamScore()" />
+                    <input type="number" id="modal-exam-max" value="${this.escapeHtml(exam.maxScore !== undefined ? exam.maxScore : 100)}" placeholder="如 100" step="0.5" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" oninput="app.recalcModalExamScore()" />
                   </div>
                 </div>
 
@@ -2228,20 +2243,20 @@ class App {
                   </label>
                   <span class="text-[10px] text-slate-400">填写后将以此成绩为准计算均分与 Grade</span>
                 </div>
-                <input type="number" id="modal-exam-curved" value="${exam.curvedScore !== undefined && exam.curvedScore !== null ? exam.curvedScore : ''}" placeholder="留空则按 Raw Score 直接折算，例如 92.5" step="0.1" min="0" max="150" class="w-full px-3 py-2 border border-violet-200 dark:border-violet-800/70 rounded-xl text-sm font-bold bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-500" oninput="app.recalcModalExamScore()" />
+                <input type="number" id="modal-exam-curved" value="${this.escapeHtml(exam.curvedScore !== undefined && exam.curvedScore !== null ? exam.curvedScore : '')}" placeholder="留空则按 Raw Score 直接折算，例如 92.5" step="0.1" min="0" max="150" class="w-full px-3 py-2 border border-violet-200 dark:border-violet-800/70 rounded-xl text-sm font-bold bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-500" oninput="app.recalcModalExamScore()" />
               </div>
             </div>
 
             <!-- 复盘与评价 -->
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">教师评语 / 复盘与错因反思</label>
-              <textarea id="modal-exam-note" rows="2" placeholder="记录本次打分教师评语、课堂表现细节或错因反思..." class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none">${exam.note || ''}</textarea>
+              <textarea id="modal-exam-note" rows="2" placeholder="记录本次打分教师评语、课堂表现细节或错因反思..." class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none">${this.escapeHtml(exam.note || '')}</textarea>
             </div>
           </div>
 
           <div class="px-6 py-3.5 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
             <button onclick="app.closeModal('exam-modal')" class="px-4 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200">取消</button>
-            <button onclick="app.saveExam('${examId || ''}')" class="px-5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">保存成绩记录</button>
+            <button onclick="app.saveExam(${this.inlineArg(examId || '')})" class="px-5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">保存成绩记录</button>
           </div>
         </div>
       </div>
@@ -2301,7 +2316,7 @@ class App {
 
     const subId = document.getElementById('modal-exam-subject').value;
     const sub = this.subjects.find(s => s.id === subId);
-    const curriculum = sub ? (sub.curriculum || 'A Level') : 'A Level';
+    const curriculum = sub ? this.escapeHtml(sub.curriculum || 'A Level') : 'A Level';
 
     const grade = this.calculateGrade(effectivePct, curriculum);
 
@@ -2353,7 +2368,7 @@ class App {
     const isCurved = curvedScore !== null;
 
     const sub = this.subjects.find(s => s.id === subjectId);
-    const curriculum = sub ? (sub.curriculum || 'A Level') : 'A Level';
+    const curriculum = sub ? this.escapeHtml(sub.curriculum || 'A Level') : 'A Level';
     const grade = this.calculateGrade(percentage, curriculum);
 
     const exam = {
@@ -2428,7 +2443,7 @@ class App {
           <div class="space-y-4">
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">学科名称 *</label>
-              <input type="text" id="modal-sub-name" value="${sub.name}" placeholder="如：Maths S1、Physics" class="w-full px-3.5 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+              <input type="text" id="modal-sub-name" value="${this.escapeHtml(sub.name)}" placeholder="如：Maths S1、Physics" class="w-full px-3.5 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
@@ -2441,7 +2456,7 @@ class App {
               </div>
               <div>
                 <label class="block text-xs font-semibold text-slate-500 mb-1">测验常规参考满分</label>
-                <input type="number" id="modal-sub-max" value="${sub.defaultMaxScore || 30}" class="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                <input type="number" id="modal-sub-max" value="${this.escapeHtml(sub.defaultMaxScore || 30)}" class="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
               </div>
             </div>
             <div>
@@ -2453,7 +2468,7 @@ class App {
           </div>
           <div class="flex justify-end gap-3 mt-6 pt-3 border-t border-slate-200 dark:border-slate-800">
             <button onclick="app.closeModal('subject-modal')" class="px-3 py-1.5 rounded-lg text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100">取消</button>
-            <button onclick="app.saveSubject('${subId || ''}')" class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">保存学科</button>
+            <button onclick="app.saveSubject(${this.inlineArg(subId || '')})" class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">保存学科</button>
           </div>
         </div>
       </div>
@@ -2614,7 +2629,7 @@ class App {
     };
 
     toast.className = `flex items-center gap-2.5 px-4 py-2.5 rounded-xl shadow-lg text-xs font-semibold transition-all duration-300 transform translate-y-4 opacity-0 ${bgMap[type] || bgMap.info}`;
-    toast.innerHTML = `<span>${message}</span>`;
+    toast.textContent = String(message);
     container.appendChild(toast);
 
     requestAnimationFrame(() => {
@@ -2792,9 +2807,9 @@ class App {
         const count = this.questions.filter(q => q.subjectId === s.id).length;
         const isActive = this.filter.subjectId === s.id;
         return `
-          <button onclick="app.setFilter('subjectId', '${s.id}'); app.setFilter('unitId', 'all');" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${isActive ? 'text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}" style="${isActive ? `background-color: ${s.color}` : ''}">
-            <span class="w-2 h-2 rounded-full" style="background-color: ${s.color}"></span>
-            ${s.name} (${count})
+          <button onclick="app.setFilter('subjectId', ${this.inlineArg(s.id)}); app.setFilter('unitId', 'all');" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${isActive ? 'text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}" style="${isActive ? `background-color: ${this.safeColor(s.color)}` : ''}">
+            <span class="w-2 h-2 rounded-full" style="background-color: ${this.safeColor(s.color)}"></span>
+            ${this.escapeHtml(s.name)} (${count})
           </button>
         `;
       }).join('')}
@@ -2877,8 +2892,8 @@ class App {
       if (this.filter.subjectId === 'all') {
         unitItemsHtml += `
           <div class="dropdown-group-header px-2.5 pt-2 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${s.color}"></span>
-            <span>${s.name}</span>
+            <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${this.safeColor(s.color)}"></span>
+            <span>${this.escapeHtml(s.name)}</span>
           </div>
         `;
       }
@@ -2886,10 +2901,10 @@ class App {
       units.forEach(u => {
         const uCount = this.questions.filter(q => q.subjectId === s.id && q.unitId === u.id).length;
         const isSelected = this.filter.unitId === u.id;
-        const searchStr = `${s.name} ${u.name}`.toLowerCase().replace(/"/g, '&quot;');
+        const searchStr = `${this.escapeHtml(s.name)} ${this.escapeHtml(u.name)}`.toLowerCase().replace(/"/g, '&quot;');
         unitItemsHtml += `
-          <button type="button" data-search-text="${searchStr}" onclick="app.selectFilterDropdown('unitId', '${u.id}')" class="dropdown-item w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 transition ${isSelected ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold' : (uCount === 0 ? 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800')}">
-            <span class="truncate">${u.name}</span>
+          <button type="button" data-search-text="${searchStr}" onclick="app.selectFilterDropdown('unitId', ${this.inlineArg(u.id)})" class="dropdown-item w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 transition ${isSelected ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold' : (uCount === 0 ? 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800')}">
+            <span class="truncate">${this.escapeHtml(u.name)}</span>
             <span class="text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300' : (uCount > 0 ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold' : 'text-slate-400')}">${uCount}</span>
           </button>
         `;
@@ -2899,7 +2914,7 @@ class App {
     return `
       <div class="relative custom-dropdown-container">
         <button type="button" onclick="app.toggleDropdown('filter-unit')" class="flex items-center justify-between gap-2 px-2.5 py-1.5 border ${this.filter.unitId !== 'all' ? 'border-indigo-400 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'} rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/70 transition max-w-[230px]">
-          <span class="truncate">${selectedUnitLabel}</span>
+          <span class="truncate">${this.escapeHtml(selectedUnitLabel)}</span>
           <span class="text-[10px] text-slate-400 shrink-0">▾</span>
         </button>
         <div data-dropdown-menu="filter-unit" class="custom-dropdown-menu hidden absolute left-0 mt-1.5 w-[min(20rem,calc(100vw-2rem))] sm:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-40 overflow-hidden">
@@ -2931,16 +2946,16 @@ class App {
     const examItemsHtml = targetExams.map(e => {
       const sub = subMap.get(e.subjectId);
       const isSelected = this.filter.examId === e.id;
-      const searchStr = `${sub ? sub.name : ''} ${e.title || ''} ${e.date || ''}`.toLowerCase().replace(/"/g, '&quot;');
+      const searchStr = this.escapeHtml(`${sub ? sub.name : ''} ${e.title || ''} ${e.date || ''}`.toLowerCase());
       return `
-        <button type="button" data-search-text="${searchStr}" onclick="app.selectFilterDropdown('examId', '${e.id}')" class="dropdown-item w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 transition ${isSelected ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}">
+        <button type="button" data-search-text="${searchStr}" onclick="app.selectFilterDropdown('examId', ${this.inlineArg(e.id)})" class="dropdown-item w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 transition ${isSelected ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}">
           <div class="flex items-center gap-1.5 min-w-0">
-            ${sub ? `<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background-color: ${sub.color}"></span>` : ''}
-            <span class="truncate">${e.title}</span>
+            ${sub ? `<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background-color: ${this.safeColor(sub.color)}"></span>` : ''}
+            <span class="truncate">${this.escapeHtml(e.title)}</span>
           </div>
           <div class="flex items-center gap-1.5 shrink-0 text-[10px]">
-            ${e.date ? `<span class="text-slate-400">${e.date.slice(5)}</span>` : ''}
-            ${e.grade ? `<span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-bold text-slate-600 dark:text-slate-300">${e.grade}</span>` : ''}
+            ${e.date ? `<span class="text-slate-400">${this.escapeHtml(e.date.slice(5))}</span>` : ''}
+            ${e.grade ? `<span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-bold text-slate-600 dark:text-slate-300">${this.escapeHtml(e.grade)}</span>` : ''}
           </div>
         </button>
       `;
@@ -2949,7 +2964,7 @@ class App {
     return `
       <div class="relative custom-dropdown-container">
         <button type="button" onclick="app.toggleDropdown('filter-exam')" class="flex items-center justify-between gap-2 px-2.5 py-1.5 border ${this.filter.examId !== 'all' ? 'border-indigo-400 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'} rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/70 transition max-w-[220px]">
-          <span class="truncate">${selectedExamLabel}</span>
+          <span class="truncate">${this.escapeHtml(selectedExamLabel)}</span>
           <span class="text-[10px] text-slate-400 shrink-0">▾</span>
         </button>
         <div data-dropdown-menu="filter-exam" class="custom-dropdown-menu hidden absolute left-0 mt-1.5 w-[min(20rem,calc(100vw-2rem))] sm:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-40 overflow-hidden">
@@ -3045,7 +3060,7 @@ class App {
             }
             return `
               <div class="p-3 rounded-xl border ${cardStyle} flex items-center gap-2.5">
-                <span class="w-6 h-6 rounded-md font-mono font-bold text-xs flex items-center justify-center shrink-0 ${isCorrect ? 'bg-emerald-600 text-white' : (isMy ? 'bg-rose-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200')}">${l}</span>
+                <span class="w-6 h-6 rounded-md font-mono font-bold text-xs flex items-center justify-center shrink-0 ${isCorrect ? 'bg-emerald-600 text-white' : (isMy ? 'bg-rose-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200')}">${this.escapeHtml(l)}</span>
                 <div class="flex-1 min-w-0 markdown-body question-option-text leading-snug">
                   ${window.markdownRenderer.render(q.options[l] || '')}
                 </div>
@@ -3073,8 +3088,8 @@ class App {
             <div class="p-3.5 rounded-xl border ${p.isWrong ? 'border-rose-300 dark:border-rose-900/60 bg-rose-50/30 dark:bg-rose-950/20' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'} space-y-1.5 my-2">
               <div class="flex items-center justify-between text-xs">
                 <div class="flex items-center gap-2">
-                  <strong class="font-mono text-base ${p.isWrong ? 'text-rose-600 dark:text-rose-400 font-black' : 'text-slate-800 dark:text-slate-200'}">${p.label || '(a)'}</strong>
-                  ${p.marks ? `<span class="text-slate-400 font-mono text-xs">[${p.marks}]</span>` : ''}
+                  <strong class="font-mono text-base ${p.isWrong ? 'text-rose-600 dark:text-rose-400 font-black' : 'text-slate-800 dark:text-slate-200'}">${this.escapeHtml(p.label || '(a)')}</strong>
+                  ${p.marks ? `<span class="text-slate-400 font-mono text-xs">[${this.escapeHtml(p.marks)}]</span>` : ''}
                 </div>
                 ${p.isWrong ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500 text-white">⚠️ 本问失分 (需重点突破)</span>' : '<span class="text-[10px] text-slate-400">✅ 本问答对 / 略过</span>'}
               </div>
@@ -3097,66 +3112,66 @@ class App {
         const renderedSolution = window.markdownRenderer.render(q.solution || '*暂未录入题解*');
 
         return `
-          <div class="card-hover bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden p-6 transition">
+          <div class="card-hover bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden p-4 sm:p-6 transition">
             <!-- 头部元信息 -->
             <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
               <div class="flex flex-wrap items-center gap-2">
                 <label class="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-500 hover:text-indigo-600 mr-1.5">
-                  <input type="checkbox" ${isSelectedForPractice ? 'checked' : ''} onchange="app.togglePracticeQuestion('${q.id}')" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                  <input type="checkbox" ${isSelectedForPractice ? 'checked' : ''} onchange="app.togglePracticeQuestion(${this.inlineArg(q.id)})" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                   <span>加入重练</span>
                 </label>
 
                 ${sub ? `
-                  <span class="px-2.5 py-0.5 rounded-md text-xs font-bold text-white shadow-xs" style="background-color: ${sub.color}">
-                    ${sub.name}
+                  <span class="px-2.5 py-0.5 rounded-md text-xs font-bold text-white shadow-xs" style="background-color: ${this.safeColor(sub.color)}">
+                    ${this.escapeHtml(sub.name)}
                   </span>
                 ` : `
-                  <select onchange="app.reassignQuestionSubject('${q.id}', this.value)" class="text-xs border border-amber-300 bg-amber-50 dark:bg-amber-950/50 rounded-lg px-2 py-0.5 text-amber-800 dark:text-amber-200 font-bold focus:outline-none">
+                  <select onchange="app.reassignQuestionSubject(${this.inlineArg(q.id)}, this.value)" class="text-xs border border-amber-300 bg-amber-50 dark:bg-amber-950/50 rounded-lg px-2 py-0.5 text-amber-800 dark:text-amber-200 font-bold focus:outline-none">
                     <option value="">⚠️ 点击指定学科...</option>
-                    ${this.subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                    ${this.subjects.map(s => `<option value="${this.escapeHtml(s.id)}">${this.escapeHtml(s.name)}</option>`).join('')}
                   </select>
                 `}
 
-                ${unitName ? `<span class="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">📖 ${unitName}</span>` : ''}
+                ${unitName ? `<span class="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">📖 ${this.escapeHtml(unitName)}</span>` : ''}
 
                 ${q.paperCode ? `
                   <span class="px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/60 flex items-center gap-1 shadow-2xs" title="CIE 官方真题考卷与题号">
                     <span>🏷️</span>
-                    <span>${q.paperCode}</span>
+                    <span>${this.escapeHtml(q.paperCode)}</span>
                   </span>
                 ` : ''}
 
                 <!-- 题型徽章与小问状态 -->
                 ${isMcq ? `
                   <span class="px-2 py-0.5 rounded-md text-xs font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200/50">🔘 单选题</span>
-                  ${isSolutionExpanded && q.myOption ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 border border-rose-200/50">错选: ${q.myOption}</span>` : ''}
-                  ${isSolutionExpanded && q.correctOption ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200/50">正解: ${q.correctOption}</span>` : ''}
+                  ${isSolutionExpanded && q.myOption ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 border border-rose-200/50">错选: ${this.escapeHtml(q.myOption)}</span>` : ''}
+                  ${isSolutionExpanded && q.correctOption ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200/50">正解: ${this.escapeHtml(q.correctOption)}</span>` : ''}
                 ` : (hasParts ? `
                   <span class="px-2 py-0.5 rounded-md text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 border border-indigo-200/50">📋 复合大题 (${q.parts.length}问)</span>
-                  ${wrongParts.length > 0 ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 border border-rose-200/50">错在: ${wrongParts.map(p => p.label).join('、')}</span>` : ''}
+                  ${wrongParts.length > 0 ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 border border-rose-200/50">错在: ${this.escapeHtml(wrongParts.map(p => p.label).join('、'))}</span>` : ''}
                 ` : '')}
 
                 ${exam ? `
                   <span class="text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    <span>来源：${exam.title}</span>
-                    ${exam.grade ? `<span class="font-bold text-indigo-600">(${exam.grade})</span>` : ''}
+                    <span>来源：${this.escapeHtml(exam.title)}</span>
+                    ${exam.grade ? `<span class="font-bold text-indigo-600">(${this.escapeHtml(exam.grade)})</span>` : ''}
                   </span>
                 ` : ''}
               </div>
 
               <div class="flex items-center gap-2 text-xs shrink-0 whitespace-nowrap">
                 <span class="text-slate-400 font-mono text-[11px]">${new Date(q.createdAt).toLocaleDateString('zh-CN')}</span>
-                <button onclick="app.editQuestion('${q.id}')" class="whitespace-nowrap px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-slate-700 transition font-medium">编辑</button>
-                <button onclick="app.deleteQuestion('${q.id}')" class="whitespace-nowrap px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 transition">删除</button>
+                <button onclick="app.editQuestion(${this.inlineArg(q.id)})" class="whitespace-nowrap px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-slate-700 transition font-medium">编辑</button>
+                <button onclick="app.deleteQuestion(${this.inlineArg(q.id)})" class="whitespace-nowrap px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 transition">删除</button>
               </div>
             </div>
 
             <!-- 错题标题与错因 -->
             <div class="my-3">
-              ${q.title ? `<h3 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">${q.title}</h3>` : ''}
+              ${q.title ? `<h3 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">${this.escapeHtml(q.title)}</h3>` : ''}
               ${q.reasons && q.reasons.length > 0 ? `
                 <div class="flex flex-wrap gap-1.5 mb-2">
-                  ${q.reasons.map(r => `<span class="px-2 py-0.5 text-[11px] font-medium rounded bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200/60 dark:border-rose-900/60">⚠️ ${r}</span>`).join('')}
+                  ${q.reasons.map(r => `<span class="px-2 py-0.5 text-[11px] font-medium rounded bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200/60 dark:border-rose-900/60">⚠️ ${this.escapeHtml(r)}</span>`).join('')}
                 </div>
               ` : ''}
             </div>
@@ -3169,7 +3184,7 @@ class App {
             <!-- 题解折叠展示 -->
             <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2">
               <div class="flex items-center justify-between">
-                <button onclick="app.toggleSolutionExpand('${q.id}')" class="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                <button onclick="app.toggleSolutionExpand(${this.inlineArg(q.id)})" class="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
                   <span>${isSolutionExpanded ? '▼ 收起参考题解 (Mark Scheme)' : '▶ 查看参考题解与考点解析 (Mark Scheme)'}</span>
                 </button>
                 <div class="text-[11px] text-slate-400">重做复习: ${q.reviewCount || 1}次</div>
@@ -3275,28 +3290,28 @@ class App {
     if (alSubjects.length > 0) {
       subOptions += `<optgroup label="📐 A Level 学科">`;
       alSubjects.forEach(s => {
-        subOptions += `<option value="${s.id}" ${this.form.subjectId === s.id ? 'selected' : ''}>${s.name} ${s.chineseName ? `(${s.chineseName})` : ''}</option>`;
+        subOptions += `<option value="${this.escapeHtml(s.id)}" ${this.form.subjectId === s.id ? 'selected' : ''}>${this.escapeHtml(s.name)} ${s.chineseName ? `(${this.escapeHtml(s.chineseName)})` : ''}</option>`;
       });
       subOptions += `</optgroup>`;
     }
     if (cnccSubjects.length > 0) {
       subOptions += `<optgroup label="🔬 CNCC 国家课程学科">`;
       cnccSubjects.forEach(s => {
-        subOptions += `<option value="${s.id}" ${this.form.subjectId === s.id ? 'selected' : ''}>${s.name}</option>`;
+        subOptions += `<option value="${this.escapeHtml(s.id)}" ${this.form.subjectId === s.id ? 'selected' : ''}>${this.escapeHtml(s.name)}</option>`;
       });
       subOptions += `</optgroup>`;
     }
     if (otherSubjects.length > 0) {
       subOptions += `<optgroup label="🌐 其他学科">`;
       otherSubjects.forEach(s => {
-        subOptions += `<option value="${s.id}" ${this.form.subjectId === s.id ? 'selected' : ''}>${s.name}</option>`;
+        subOptions += `<option value="${this.escapeHtml(s.id)}" ${this.form.subjectId === s.id ? 'selected' : ''}>${this.escapeHtml(s.name)}</option>`;
       });
       subOptions += `</optgroup>`;
     }
 
     const currentSub = this.subjects.find(s => s.id === this.form.subjectId) || this.subjects[0];
     const unitOptions = (currentSub && currentSub.units && currentSub.units.length > 0) 
-      ? currentSub.units.map(u => `<option value="${u.id}" ${this.form.unitId === u.id ? 'selected' : ''}>${u.name}</option>`).join('')
+      ? currentSub.units.map(u => `<option value="${this.escapeHtml(u.id)}" ${this.form.unitId === u.id ? 'selected' : ''}>${this.escapeHtml(u.name)}</option>`).join('')
       : '<option value="">暂无预置单元 (请点击右侧新建单元)</option>';
 
     // 联动过滤：只列出属于该学科的历次小考
@@ -3304,7 +3319,7 @@ class App {
     const examOptions = `
       <option value="">不关联特定小考（日常练习/Past Paper/作业）</option>
       ${filteredExams.map(e => `
-        <option value="${e.id}" ${this.form.examId === e.id ? 'selected' : ''}>${e.title} (${e.date}) [${e.score}/${e.maxScore}分 ${e.grade || ''}]</option>
+        <option value="${this.escapeHtml(e.id)}" ${this.form.examId === e.id ? 'selected' : ''}>${this.escapeHtml(e.title)} (${this.escapeHtml(e.date)}) [${this.escapeHtml(e.score)}/${this.escapeHtml(e.maxScore)}分 ${this.escapeHtml(e.grade || '')}]</option>
       `).join('')}
     `;
 
@@ -3327,18 +3342,18 @@ class App {
 
       return `
         <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border ${isCorrect ? 'border-emerald-400 dark:border-emerald-700 bg-emerald-50/40' : (isMy ? 'border-rose-300 dark:border-rose-800 bg-rose-50/40' : 'border-slate-200 dark:border-slate-700')} space-y-2">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2">
-              <span class="w-6 h-6 rounded-full ${isCorrect ? 'bg-emerald-600 text-white' : (isMy ? 'bg-rose-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200')} font-bold font-mono text-xs flex items-center justify-center">${letter}</span>
-              <span class="text-xs font-bold text-slate-700 dark:text-slate-300">选项 ${letter}</span>
+              <span class="w-6 h-6 rounded-full ${isCorrect ? 'bg-emerald-600 text-white' : (isMy ? 'bg-rose-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200')} font-bold font-mono text-xs flex items-center justify-center">${this.escapeHtml(letter)}</span>
+              <span class="text-xs font-bold text-slate-700 dark:text-slate-300">选项 ${this.escapeHtml(letter)}</span>
             </div>
-            <div class="flex items-center gap-3 text-xs">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
               <label class="cursor-pointer flex items-center gap-1 font-semibold ${isCorrect ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-700'}">
-                <input type="${isMultiMcq ? 'checkbox' : 'radio'}" name="mcq-correct" value="${letter}" ${isCorrect ? 'checked' : ''} onchange="app.toggleMcqCorrectOption('${letter}')" class="rounded text-emerald-600 focus:ring-emerald-500" />
+                <input type="${isMultiMcq ? 'checkbox' : 'radio'}" name="mcq-correct" value="${this.escapeHtml(letter)}" ${isCorrect ? 'checked' : ''} onchange="app.toggleMcqCorrectOption(${this.inlineArg(letter)})" class="rounded text-emerald-600 focus:ring-emerald-500" />
                 <span>设为正确答案</span>
               </label>
               <label class="cursor-pointer flex items-center gap-1 font-semibold ${isMy ? 'text-rose-600 font-bold' : 'text-slate-400 hover:text-slate-600'}">
-                <input type="${isMultiMcq ? 'checkbox' : 'radio'}" name="mcq-my" value="${letter}" ${isMy ? 'checked' : ''} onchange="app.toggleMcqMyOption('${letter}')" class="rounded text-rose-500 focus:ring-rose-500" />
+                <input type="${isMultiMcq ? 'checkbox' : 'radio'}" name="mcq-my" value="${this.escapeHtml(letter)}" ${isMy ? 'checked' : ''} onchange="app.toggleMcqMyOption(${this.inlineArg(letter)})" class="rounded text-rose-500 focus:ring-rose-500" />
                 <span>我当时错选</span>
               </label>
               ${canDelete ? `
@@ -3346,7 +3361,7 @@ class App {
               ` : ''}
             </div>
           </div>
-          <input type="text" value="${item.text || (this.form.options && this.form.options[letter]) || ''}" oninput="app.updateMcqOptionText('${letter}', this.value)" placeholder="选项 ${letter} 内容 (如: $x = 4$ 或文本描述)..." class="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-indigo-500 focus:outline-none" />
+          <input type="text" value="${this.escapeHtml(item.text || (this.form.options && this.form.options[letter]) || '')}" oninput="app.updateMcqOptionText(${this.inlineArg(letter)}, this.value)" placeholder="选项 ${this.escapeHtml(letter)} 内容 (如: $x = 4$ 或文本描述)..." class="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-indigo-500 focus:outline-none" />
         </div>
       `;
     }).join('');
@@ -3378,9 +3393,9 @@ class App {
           <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200/60 dark:border-slate-700/60">
             <div class="flex items-center gap-2">
               <span class="text-xs font-bold text-slate-500">小题号:</span>
-              <input type="text" value="${part.label || '(a)'}" onchange="app.updatePartField(${idx}, 'label', this.value)" class="w-16 px-2 py-0.5 border border-slate-300 dark:border-slate-600 rounded text-xs font-bold font-mono bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-center" placeholder="(a)" />
+              <input type="text" value="${this.escapeHtml(part.label || '(a)')}" onchange="app.updatePartField(${idx}, 'label', this.value)" class="w-16 px-2 py-0.5 border border-slate-300 dark:border-slate-600 rounded text-xs font-bold font-mono bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-center" placeholder="(a)" />
               <span class="text-xs font-bold text-slate-500 ml-2">分值:</span>
-              <input type="text" value="${part.marks || ''}" onchange="app.updatePartField(${idx}, 'marks', this.value)" class="w-14 px-2 py-0.5 border border-slate-300 dark:border-slate-600 rounded text-xs font-mono bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-center" placeholder="3分" />
+              <input type="text" value="${this.escapeHtml(part.marks || '')}" onchange="app.updatePartField(${idx}, 'marks', this.value)" class="w-14 px-2 py-0.5 border border-slate-300 dark:border-slate-600 rounded text-xs font-mono bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-center" placeholder="3分" />
             </div>
 
             <div class="flex items-center gap-2">
@@ -3394,13 +3409,13 @@ class App {
           <div class="space-y-3">
             <div>
               <label class="block text-[11px] font-bold text-slate-500 mb-1">小问题目内容 (Markdown/LaTeX/截图粘贴) *</label>
-              <textarea id="part-text-${idx}" oninput="app.updatePartField(${idx}, 'text', this.value)" rows="3" class="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-indigo-500 resize-y" placeholder="如：Find the equation of the tangent at (2, 5)...">${part.text || ''}</textarea>
+              <textarea id="part-text-${idx}" oninput="app.updatePartField(${idx}, 'text', this.value)" rows="3" class="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-indigo-500 resize-y" placeholder="如：Find the equation of the tangent at (2, 5)...">${this.escapeHtml(part.text || '')}</textarea>
             </div>
             
             <div class="space-y-1.5 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
               <div class="flex items-center justify-between pb-1 flex-wrap gap-2">
                 <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                  小问 ${part.label || '(a)'} 参考题解与 Mark Scheme 评分细则
+                  小问 ${this.escapeHtml(part.label || '(a)')} 参考题解与 Mark Scheme 评分细则
                 </label>
                 <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-xs">
                   <button type="button" onclick="app.setPartSolutionMode(${idx}, 'mark_scheme_table')" class="px-2 py-0.5 rounded transition cursor-pointer ${mode === 'mark_scheme_table' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 font-bold shadow-2xs' : 'text-slate-500 hover:text-slate-700'}">
@@ -3418,7 +3433,7 @@ class App {
               ${mode === 'mark_scheme_table' ? `
                 ${this.renderMarkSchemeTableUI(part.solutionRows, idx)}
               ` : (mode === 'markdown' ? `
-                <textarea id="part-sol-${idx}" oninput="app.updatePartField(${idx}, 'solution', this.value)" rows="3" class="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-indigo-500 resize-y" placeholder="输入该小问的参考步骤与解析...">${part.solution || ''}</textarea>
+                <textarea id="part-sol-${idx}" oninput="app.updatePartField(${idx}, 'solution', this.value)" rows="3" class="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-indigo-500 resize-y" placeholder="输入该小问的参考步骤与解析...">${this.escapeHtml(part.solution || '')}</textarea>
               ` : `
                 <div class="p-3 bg-slate-100/70 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between">
                   <span class="flex items-center gap-1.5">
@@ -3438,18 +3453,18 @@ class App {
             <div class="flex items-center justify-between">
               <label class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
                 <span>📝</span>
-                <span>${part.label || '(a)'} 之后的问间过渡文字 / 补充条件</span>
+                <span>${this.escapeHtml(part.label || '(a)')} 之后的问间过渡文字 / 补充条件</span>
               </label>
               <button type="button" onclick="app.togglePartAfterText(${idx}, false)" class="text-[11px] text-slate-400 hover:text-rose-500 font-medium cursor-pointer">
                 ✕ 移除此过渡文字
               </button>
             </div>
-            <textarea id="part-after-${idx}" oninput="app.updatePartField(${idx}, 'afterText', this.value)" rows="2" class="w-full p-2.5 border border-indigo-200 dark:border-indigo-800/70 rounded-lg text-xs font-mono bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-indigo-500 resize-y" placeholder="如：The median and interquartile range for the Panthers are 103 minutes and 14 minutes respectively.">${part.afterText || ''}</textarea>
+            <textarea id="part-after-${idx}" oninput="app.updatePartField(${idx}, 'afterText', this.value)" rows="2" class="w-full p-2.5 border border-indigo-200 dark:border-indigo-800/70 rounded-lg text-xs font-mono bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-indigo-500 resize-y" placeholder="如：The median and interquartile range for the Panthers are 103 minutes and 14 minutes respectively.">${this.escapeHtml(part.afterText || '')}</textarea>
           </div>
         ` : `
           <div class="flex justify-center">
             <button type="button" onclick="app.togglePartAfterText(${idx}, true)" class="px-3 py-1 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-700 transition cursor-pointer">
-              + 在 ${part.label || '(a)'} 后添加问间过渡文字 / 补充条件
+              + 在 ${this.escapeHtml(part.label || '(a)')} 后添加问间过渡文字 / 补充条件
             </button>
           </div>
         `}
@@ -3564,14 +3579,14 @@ class App {
                 <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">真题题号 / CIE CODE (可选)</label>
                 <span class="text-[10px] text-indigo-500 dark:text-indigo-400 font-mono font-semibold">例: W24-52-3</span>
               </div>
-              <input type="text" id="editor-paper-code" value="${this.form.paperCode || ''}" oninput="this.value = this.value.toUpperCase()" placeholder="如：W24-52-3 (24冬考52卷第3题)" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold uppercase bg-slate-50 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder:font-normal placeholder:normal-case" />
+              <input type="text" id="editor-paper-code" value="${this.escapeHtml(this.form.paperCode || '')}" oninput="this.value = this.value.toUpperCase()" placeholder="如：W24-52-3 (24冬考52卷第3题)" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold uppercase bg-slate-50 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder:font-normal placeholder:normal-case" />
               <p class="text-[10px] text-slate-400 mt-1">格式：考季(W冬/S夏/M春) + 年份(24) - 试卷号(52) - 题号(3)</p>
             </div>
 
             <!-- 错题简题 / 考点提炼 -->
             <div>
               <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5">错题简题 / 考点提炼 (可选)</label>
-              <input type="text" id="editor-title" value="${this.form.title}" placeholder="如：条件概率取球问题、电路分压计算" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+              <input type="text" id="editor-title" value="${this.escapeHtml(this.form.title)}" placeholder="如：条件概率取球问题、电路分压计算" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
             </div>
 
             <!-- 关联具体小考 -->
@@ -3630,7 +3645,7 @@ class App {
                 <div class="space-y-4">
                   <div>
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">选择题题干内容 *</label>
-                    <textarea id="editor-mcq-stem" rows="4" class="w-full p-3 font-mono text-xs leading-relaxed bg-slate-50/50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y" placeholder="在此输入选择题题干，支持 $...$ 数学公式与截图粘贴...">${this.form.stem || ''}</textarea>
+                    <textarea id="editor-mcq-stem" rows="4" class="w-full p-3 font-mono text-xs leading-relaxed bg-slate-50/50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y" placeholder="在此输入选择题题干，支持 $...$ 数学公式与截图粘贴...">${this.escapeHtml(this.form.stem || '')}</textarea>
                   </div>
 
                   <div class="space-y-2">
@@ -3661,7 +3676,7 @@ class App {
                     ${this.form.solutionMode === 'mark_scheme_table' ? `
                       ${this.renderMarkSchemeTableUI(this.form.markSchemeRows, null)}
                     ` : `
-                      <textarea id="editor-mcq-solution" rows="4" class="w-full p-3 font-mono text-xs leading-relaxed bg-slate-50/50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y" placeholder="输入本题解析、选项推导依据、以及当时错选的思维陷阱...">${this.form.solution || ''}</textarea>
+                      <textarea id="editor-mcq-solution" rows="4" class="w-full p-3 font-mono text-xs leading-relaxed bg-slate-50/50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y" placeholder="输入本题解析、选项推导依据、以及当时错选的思维陷阱...">${this.escapeHtml(this.form.solution || '')}</textarea>
                     `}
                   </div>
                 </div>
@@ -3674,12 +3689,12 @@ class App {
                       <div class="flex items-center gap-2">
                         <div class="flex items-center gap-1 text-xs">
                           <span class="text-slate-400">分值:</span>
-                          <input id="editor-stem-marks" type="text" value="${this.form.stemMarks || ''}" placeholder="无小问填" class="w-16 px-1.5 py-0.5 text-center border border-slate-200 dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none" />
+                          <input id="editor-stem-marks" type="text" value="${this.escapeHtml(this.form.stemMarks || '')}" placeholder="无小问填" class="w-16 px-1.5 py-0.5 text-center border border-slate-200 dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none" />
                         </div>
                         <span class="text-[11px] text-slate-400">若没有公共题干可留空</span>
                       </div>
                     </div>
-                    <textarea id="editor-stem" rows="3" class="w-full p-3 font-mono text-xs leading-relaxed bg-slate-50/50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y" placeholder="输入大题公共题干，例如：The diagram shows the curve with equation $y = 3x^2 - 4x + 1$...">${this.form.stem || ''}</textarea>
+                    <textarea id="editor-stem" rows="3" class="w-full p-3 font-mono text-xs leading-relaxed bg-slate-50/50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y" placeholder="输入大题公共题干，例如：The diagram shows the curve with equation $y = 3x^2 - 4x + 1$...">${this.escapeHtml(this.form.stem || '')}</textarea>
                   </div>
 
                   <div class="space-y-3">
@@ -3707,7 +3722,7 @@ class App {
                       ${this.form.solutionMode === 'mark_scheme_table' ? `
                         ${this.renderMarkSchemeTableUI(this.form.markSchemeRows, null)}
                       ` : (this.form.solutionMode === 'markdown' ? `
-                        <textarea id="editor-stem-solution" rows="4" class="w-full p-3 font-mono text-xs leading-relaxed bg-slate-50/50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y" placeholder="输入本题参考题解与 Mark Scheme 评分要点...">${this.form.solution || ''}</textarea>
+                        <textarea id="editor-stem-solution" rows="4" class="w-full p-3 font-mono text-xs leading-relaxed bg-slate-50/50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y" placeholder="输入本题参考题解与 Mark Scheme 评分要点...">${this.escapeHtml(this.form.solution || '')}</textarea>
                       ` : `
                         <div class="text-[11px] text-slate-400 italic py-1">当前未录入题解，可点击上方「📋 官方 Mark Scheme 4 列表格录入」或「✍️ 自由 Markdown 模式」开始编辑</div>
                       `)}
@@ -3731,7 +3746,7 @@ class App {
                       id="editor-content" 
                       class="w-full min-h-[360px] font-mono text-xs leading-relaxed p-3 bg-slate-50/50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y" 
                       placeholder="在此输入题目正文...&#10;&#10;公式示例：$y = \\frac{16}{x^2} - 4$&#10;块级公式：&#10;$$\\int_{a}^{b} f(x)dx$$&#10;截图后直接按 Cmd+V 粘贴图片！"
-                    >${this.form.content}</textarea>
+                    >${this.escapeHtml(this.form.content)}</textarea>
                   </div>
 
                   <div class="${this.activeEditorTab === 'solution' ? 'block' : 'hidden'} space-y-3">
@@ -3744,7 +3759,7 @@ class App {
                         id="editor-solution" 
                         class="w-full min-h-[360px] font-mono text-xs leading-relaxed p-3 bg-slate-50/50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y" 
                         placeholder="在此输入参考题解与 Mark Scheme 评分点...&#10;&#10;解题要点：&#10;1. 第一步：分析事件互斥与独立条件 P(A ∩ B)&#10;2. 第二步：根据全概率公式展开计算..."
-                      >${this.form.solution}</textarea>
+                      >${this.escapeHtml(this.form.solution)}</textarea>
                     `}
                   </div>
                 </div>
@@ -3806,7 +3821,7 @@ class App {
       unitEl.innerHTML = '<option value="">暂无预置单元 (请点击右侧新建单元)</option>';
       this.form.unitId = '';
     } else {
-      unitEl.innerHTML = currentSub.units.map(u => `<option value="${u.id}" ${this.form.unitId === u.id ? 'selected' : ''}>${u.name}</option>`).join('');
+      unitEl.innerHTML = currentSub.units.map(u => `<option value="${this.escapeHtml(u.id)}" ${this.form.unitId === u.id ? 'selected' : ''}>${this.escapeHtml(u.name)}</option>`).join('');
       if (!this.form.unitId || !currentSub.units.some(u => u.id === this.form.unitId)) {
         this.form.unitId = currentSub.units[0].id;
         unitEl.value = currentSub.units[0].id;
@@ -3823,7 +3838,7 @@ class App {
     const filteredExams = this.exams.filter(e => !selectedSubId || e.subjectId === selectedSubId);
     let html = '<option value="">不关联特定小考（日常练习/Past Paper/作业）</option>';
     filteredExams.forEach(e => {
-      html += `<option value="${e.id}" ${this.form.examId === e.id ? 'selected' : ''}>${e.title} (${e.date}) [${e.score}/${e.maxScore}分 ${e.grade || ''}]</option>`;
+      html += `<option value="${this.escapeHtml(e.id)}" ${this.form.examId === e.id ? 'selected' : ''}>${this.escapeHtml(e.title)} (${this.escapeHtml(e.date)}) [${this.escapeHtml(e.score)}/${this.escapeHtml(e.maxScore)}分 ${this.escapeHtml(e.grade || '')}]</option>`;
     });
     examEl.innerHTML = html;
   }
@@ -4085,7 +4100,7 @@ class App {
     }
     return categories.map(cat => {
       const isSelected = selectedCatId ? (selectedCatId === cat.id) : false;
-      return `<option value="${cat.id}" ${isSelected ? 'selected' : ''}>${cat.name} (${cat.weight}%)</option>`;
+      return `<option value="${this.escapeHtml(cat.id)}" ${isSelected ? 'selected' : ''}>${this.escapeHtml(cat.name)} (${this.escapeHtml(cat.weight)}%)</option>`;
     }).join('');
   }
 
@@ -4228,7 +4243,7 @@ class App {
             <div>
               <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <span>⚙️</span>
-                <span>自定义【${sub.name}】考核项目与权重配置</span>
+                <span>自定义【${this.escapeHtml(sub.name)}】考核项目与权重配置</span>
               </h3>
               <p class="text-xs text-slate-400 mt-0.5">可自由增减考核维度（如实验操作、课堂展示等）并调整各占百分比权重</p>
             </div>
@@ -4281,13 +4296,13 @@ class App {
       <div class="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-3 text-xs shadow-xs">
         <div class="flex-1 min-w-[140px]">
           <label class="block text-[10px] text-slate-400 mb-0.5">考核维度项目名称</label>
-          <input type="text" value="${item.name}" oninput="app.updateWeightModalItem(${idx}, 'name', this.value)" class="w-full px-2.5 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold" placeholder="如 Course Skills" />
+          <input type="text" value="${this.escapeHtml(item.name)}" oninput="app.updateWeightModalItem(${idx}, 'name', this.value)" class="w-full px-2.5 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold" placeholder="如 Course Skills" />
         </div>
 
         <div class="w-28">
           <label class="block text-[10px] text-slate-400 mb-0.5">权重占比 (%)</label>
           <div class="flex items-center gap-1">
-            <input type="number" min="0" max="100" step="1" value="${item.weight}" oninput="app.updateWeightModalItem(${idx}, 'weight', this.value)" class="w-full px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-mono font-bold text-center" />
+            <input type="number" min="0" max="100" step="1" value="${this.escapeHtml(item.weight)}" oninput="app.updateWeightModalItem(${idx}, 'weight', this.value)" class="w-full px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-mono font-bold text-center" />
             <span class="text-slate-400 font-bold">%</span>
           </div>
         </div>
@@ -4518,11 +4533,11 @@ class App {
                 <div class="flex items-start justify-between gap-2">
                   <div>
                     <div class="flex items-center gap-2">
-                      <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${sub.color}"></span>
-                      <h4 class="font-bold text-sm text-slate-900 dark:text-slate-100">${sub.name}</h4>
+                      <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${this.safeColor(sub.color)}"></span>
+                      <h4 class="font-bold text-sm text-slate-900 dark:text-slate-100">${this.escapeHtml(sub.name)}</h4>
                     </div>
                     <span class="text-[11px] text-slate-400 font-mono mt-0.5 block">
-                      ${isMath ? '数学综合 (P1 + S1 联动)' : (sub.curriculum || 'A Level')} · 权重占比 ${assess.totalWeight}%
+                      ${isMath ? '数学综合 (P1 + S1 联动)' : this.escapeHtml(sub.curriculum || 'A Level')} · 权重占比 ${assess.totalWeight}%
                     </span>
                   </div>
 
@@ -4555,7 +4570,7 @@ class App {
                         <div class="flex items-center justify-between py-1 px-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs">
                           <div class="flex items-center gap-1.5 min-w-0">
                             <span class="px-2 py-0.5 rounded-md text-[11px] font-bold truncate ${pillStyle}">
-                              ${cat.name} (${cat.weight}%)
+                              ${this.escapeHtml(cat.name)} (${this.escapeHtml(cat.weight)}%)
                             </span>
                           </div>
                           <div class="flex items-center gap-2 shrink-0">
@@ -4563,7 +4578,7 @@ class App {
                             <span class="font-mono text-xs font-bold ${cat.score !== null ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400'}">
                               ${cat.score !== null ? cat.score + '%' : '暂无'}
                             </span>
-                            <button onclick="app.openCategoryExamModal('${sub.id}', '${cat.id}')" title="录入此项目平时打分" class="p-0.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition text-xs font-bold">
+                            <button onclick="app.openCategoryExamModal(${this.inlineArg(sub.id)}, ${this.inlineArg(cat.id)})" title="录入此项目平时打分" class="p-0.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition text-xs font-bold">
                               ➕
                             </button>
                           </div>
@@ -4574,11 +4589,11 @@ class App {
                 </div>
 
                 <div class="pt-2 border-t border-slate-200 dark:border-slate-700/80 flex items-center justify-between text-[11px]">
-                  <button onclick="app.openExamModal(null, '${sub.id}')" class="px-2.5 py-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 transition flex items-center gap-1 font-semibold">
+                  <button onclick="app.openExamModal(null, ${this.inlineArg(sub.id)})" class="px-2.5 py-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 transition flex items-center gap-1 font-semibold">
                     <span>➕</span>
                     <span>录入此科平时成绩</span>
                   </button>
-                  <button onclick="app.openWeightConfigModal('${sub.id}')" class="px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition flex items-center gap-1 font-semibold">
+                  <button onclick="app.openWeightConfigModal(${this.inlineArg(sub.id)})" class="px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition flex items-center gap-1 font-semibold">
                     <span>⚙️</span>
                     <span>自定义权重</span>
                   </button>
@@ -4611,7 +4626,7 @@ class App {
                 <span>🌟</span><span>全科领跑学科与发挥高光</span>
               </span>
               <p class="text-slate-600 dark:text-slate-300 mt-1">
-                ${bestSub ? `<strong>${bestSub.name}</strong> 保持卓越表现，加权总评得分达到 <strong>${bestSubAvg.toFixed(1)}%</strong>，已具备稳妥的 A / A* 竞争力！继续保持刷题手感。` : '暂无充足测验数据'}
+                ${bestSub ? `<strong>${this.escapeHtml(bestSub.name)}</strong> 保持卓越表现，加权总评得分达到 <strong>${bestSubAvg.toFixed(1)}%</strong>，已具备稳妥的 A / A* 竞争力！继续保持刷题手感。` : '暂无充足测验数据'}
               </p>
             </div>
 
@@ -4621,11 +4636,11 @@ class App {
                   <span>⚠️</span><span>全局最需突破的薄弱考点</span>
                 </span>
                 <p class="text-slate-600 dark:text-slate-300 mt-1">
-                  ${weakestUnit ? `检测到 <strong>${weakestUnitSub ? weakestUnitSub.name : ''}</strong> 的 <strong>${weakestUnit.name}</strong> 考点失分偏多或错题积累密集，建议进行专题重练。` : '目前各单元掌握均衡，暂无明显警报。'}
+                  ${weakestUnit ? `检测到 <strong>${this.escapeHtml(weakestUnitSub ? weakestUnitSub.name : '')}</strong> 的 <strong>${this.escapeHtml(weakestUnit.name)}</strong> 考点失分偏多或错题积累密集，建议进行专题重练。` : '目前各单元掌握均衡，暂无明显警报。'}
                 </p>
               </div>
               ${(weakestUnit && weakestUnitSub) ? `
-                <button onclick="app.jumpToPracticeUnit('${weakestUnitSub.id}', '${weakestUnit.id}')" class="self-start px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-[11px] shadow-xs transition flex items-center gap-1">
+                <button onclick="app.jumpToPracticeUnit(${this.inlineArg(weakestUnitSub.id)}, ${this.inlineArg(weakestUnit.id)})" class="self-start px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-[11px] shadow-xs transition flex items-center gap-1">
                   <span>🎯</span>
                   <span>一键为此薄弱单元组卷重做 ➔</span>
                 </button>
@@ -4729,7 +4744,7 @@ class App {
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2 text-xs font-black text-indigo-950 dark:text-indigo-200 uppercase tracking-wider">
               <span>🎯</span>
-              <span>【${focusedSub ? focusedSub.name : ''}】单科学情精准诊断与提分建议</span>
+              <span>【${this.escapeHtml(focusedSub ? focusedSub.name : '')}】单科学情精准诊断与提分建议</span>
             </div>
             <button onclick="app.clearSubjectFocus()" class="px-2.5 py-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
               ✕ 返回全科宏观诊断 ➔
@@ -4742,7 +4757,7 @@ class App {
                 <span>🌟</span><span>高分优势章节</span>
               </span>
               <p class="text-slate-600 dark:text-slate-300 mt-1">
-                ${fBestUnit ? `<strong>${fBestUnit.name}</strong> 考点掌握扎实，继续保持高正确率！` : '暂未定位到特定优势单元，继续多做尝试！'}
+                ${fBestUnit ? `<strong>${this.escapeHtml(fBestUnit.name)}</strong> 考点掌握扎实，继续保持高正确率！` : '暂未定位到特定优势单元，继续多做尝试！'}
               </p>
             </div>
 
@@ -4752,11 +4767,11 @@ class App {
                   <span>🚨</span><span>核心薄弱突破口</span>
                 </span>
                 <p class="text-slate-600 dark:text-slate-300 mt-1">
-                  ${fWeakUnit ? `<strong>${fWeakUnit.name}</strong> 存在失分点 (错题积累 ${fWeakUnitMistakes} 道)，是该学科提分最立竿见影的突破点！` : '目前该学科各章节表现稳定。'}
+                  ${fWeakUnit ? `<strong>${this.escapeHtml(fWeakUnit.name)}</strong> 存在失分点 (错题积累 ${fWeakUnitMistakes} 道)，是该学科提分最立竿见影的突破点！` : '目前该学科各章节表现稳定。'}
                 </p>
               </div>
               ${fWeakUnit ? `
-                <button onclick="app.jumpToPracticeUnit('${focusedSub.id}', '${fWeakUnit.id}')" class="self-start px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-[11px] shadow-xs transition flex items-center gap-1">
+                <button onclick="app.jumpToPracticeUnit(${this.inlineArg(focusedSub.id)}, ${this.inlineArg(fWeakUnit.id)})" class="self-start px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-[11px] shadow-xs transition flex items-center gap-1">
                   <span>🎯</span>
                   <span>一键为此薄弱单元组卷重做 ➔</span>
                 </button>
@@ -4802,7 +4817,7 @@ class App {
         : (exam.unitId ? [exam.unitId] : []);
 
       const unitBadges = uids.length > 0
-        ? uids.map(uid => `<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">📖 ${unitNameMap.get(uid) || uid}</span>`).join(' ')
+        ? uids.map(uid => `<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">📖 ${this.escapeHtml(unitNameMap.get(uid) || uid)}</span>`).join(' ')
         : '<span class="px-2 py-0.5 rounded text-[11px] text-slate-400 bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700">全卷综合</span>';
 
       const score = exam.score !== undefined ? exam.score : '--';
@@ -4831,14 +4846,14 @@ class App {
           <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div class="space-y-1.5 w-full sm:flex-1 min-w-0">
               <div class="flex flex-wrap items-center gap-1.5">
-                ${sub ? `<span class="px-2.5 py-0.5 rounded-md text-xs font-bold text-white shadow-xs" style="background-color: ${sub.color}">${sub.name}</span>` : ''}
+                ${sub ? `<span class="px-2.5 py-0.5 rounded-md text-xs font-bold text-white shadow-xs" style="background-color: ${this.safeColor(sub.color)}">${this.escapeHtml(sub.name)}</span>` : ''}
                 <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">Summative</span>
-                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${catPillStyle}">${categoryDisplayName}</span>
+                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${catPillStyle}">${this.escapeHtml(categoryDisplayName)}</span>
                 ${exam.isFinal ? '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700">🎓 期末 Final</span>' : ''}
                 ${isCurved ? '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 border border-violet-300 dark:border-violet-700">📈 已 Curve</span>' : ''}
-                <span class="text-xs text-slate-400 font-mono">${exam.date || '未设置日期'}</span>
+                <span class="text-xs text-slate-400 font-mono">${this.escapeHtml(exam.date || '未设置日期')}</span>
               </div>
-              <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 pt-0.5">${exam.title}</h3>
+              <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 pt-0.5">${this.escapeHtml(exam.title)}</h3>
               <!-- 🎯 多单元标签并列展示 -->
               <div class="flex flex-wrap items-center gap-1.5 pt-1">
                 ${unitBadges}
@@ -4847,11 +4862,11 @@ class App {
 
             <!-- 右侧操作栏 -->
             <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
-              <button onclick="app.filterByExam('${exam.id}')" class="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition">
+              <button onclick="app.filterByExam(${this.inlineArg(exam.id)})" class="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition">
                 本测验错题 (${relatedQuestions.length})
               </button>
-              <button onclick="app.openExamModal('${exam.id}')" class="whitespace-nowrap px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition">编辑</button>
-              <button onclick="app.deleteExam('${exam.id}')" class="whitespace-nowrap px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-rose-500 hover:bg-rose-50 transition">删除</button>
+              <button onclick="app.openExamModal(${this.inlineArg(exam.id)})" class="whitespace-nowrap px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition">编辑</button>
+              <button onclick="app.deleteExam(${this.inlineArg(exam.id)})" class="whitespace-nowrap px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-rose-500 hover:bg-rose-50 transition">删除</button>
             </div>
           </div>
 
@@ -4862,16 +4877,16 @@ class App {
               <div class="min-w-0 sm:order-1">
                 <span class="text-[11px] text-slate-400 uppercase tracking-wider block">原始分 / 满分 (Raw Score)</span>
                 <div class="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono leading-tight mt-0.5">
-                  ${score} <span class="text-sm font-normal text-slate-400">/ ${maxScore} pts</span>
+                  ${this.escapeHtml(score)} <span class="text-sm font-normal text-slate-400">/ ${this.escapeHtml(maxScore)} pts</span>
                 </div>
-                ${isCurved && rawPct !== null ? `<span class="text-[11px] text-slate-400 font-mono">原始折算：${rawPct}%</span>` : ''}
+                ${isCurved && rawPct !== null ? `<span class="text-[11px] text-slate-400 font-mono">原始折算：${this.escapeHtml(rawPct)}%</span>` : ''}
               </div>
 
               <!-- 等级 Mark 大徽章 -->
               <div class="flex flex-col items-end shrink-0 sm:order-3">
                 <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Task Grade</span>
                 <span class="inline-flex items-center px-3.5 py-1 rounded-xl text-sm font-black shadow-sm ${gradeBadgeStyle}">
-                  Grade ${grade}
+                  Grade ${this.escapeHtml(grade)}
                 </span>
               </div>
             </div>
@@ -4880,7 +4895,7 @@ class App {
             <div class="w-full sm:flex-1 sm:max-w-xs sm:order-2 space-y-1.5 pt-2.5 sm:pt-0 border-t border-slate-200/70 dark:border-slate-700/60 sm:border-t-0">
               <div class="flex items-center justify-between text-xs gap-2">
                 <span class="${isCurved ? 'text-violet-600 dark:text-violet-400 font-semibold' : 'text-slate-500'}">${isCurved ? 'Curve 后有效成绩' : '折算百分制'}</span>
-                <span class="font-bold text-slate-800 dark:text-slate-200 font-mono">${percentage}%</span>
+                <span class="font-bold text-slate-800 dark:text-slate-200 font-mono">${this.escapeHtml(percentage)}%</span>
               </div>
               <div class="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                 <div class="h-full rounded-full transition-all duration-500 ${percentage >= 89.5 ? 'bg-emerald-500' : (percentage >= 79.5 ? 'bg-blue-500' : 'bg-indigo-500')}" style="width: ${Math.min(100, Math.max(0, percentage))}%"></div>
@@ -4891,7 +4906,7 @@ class App {
           <!-- 复盘笔记 -->
           ${exam.note ? `
             <div class="text-xs text-slate-600 dark:text-slate-400 bg-amber-50/60 dark:bg-amber-950/20 p-3 rounded-xl border border-amber-200/50 dark:border-amber-900/40">
-              <span class="font-bold text-amber-700 dark:text-amber-400">💡 测验反思与失分点：</span>${exam.note}
+              <span class="font-bold text-amber-700 dark:text-amber-400">💡 测验反思与失分点：</span>${this.escapeHtml(exam.note)}
             </div>
           ` : ''}
         </div>
@@ -4917,9 +4932,9 @@ class App {
             const isCurrent = this.examFilter.subjectId === s.id;
             const sCount = this.exams.filter(e => e.subjectId === s.id).length;
             return `
-              <button onclick="app.focusSubjectGrades('${s.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${isCurrent ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
-                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${s.color}"></span>
-                <span>${s.name}</span>
+              <button onclick="app.focusSubjectGrades(${this.inlineArg(s.id)})" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${isCurrent ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
+                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${this.safeColor(s.color)}"></span>
+                <span>${this.escapeHtml(s.name)}</span>
                 <span class="px-1.5 py-0.2 rounded-full text-[10px] ${isCurrent ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'} font-mono">${sCount}</span>
               </button>
             `;
@@ -4980,8 +4995,8 @@ class App {
                 ${this.subjects.map(s => {
                   const isActive = this.examFilter.chartSubjectId === s.id;
                   return `
-                    <button onclick="app.setExamChartSubject('${s.id}')" data-sub="${s.id}" class="trend-sub-pill px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${isActive ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
-                      ${s.name}
+                    <button onclick="app.setExamChartSubject(${this.inlineArg(s.id)})" data-sub="${this.escapeHtml(s.id)}" class="trend-sub-pill px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${isActive ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
+                      ${this.escapeHtml(s.name)}
                     </button>
                   `;
                 }).join('')}
@@ -5052,7 +5067,7 @@ class App {
                   <p class="text-[11px] text-slate-400">各单元平均得分率与错题数分布</p>
                 </div>
                 <select onchange="app.setExamUnitSubject(this.value)" class="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold focus:outline-none">
-                  ${this.subjects.map(s => `<option value="${s.id}" ${(this.examFilter.unitSubjectId || this.subjects[0]?.id) === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                  ${this.subjects.map(s => `<option value="${this.escapeHtml(s.id)}" ${(this.examFilter.unitSubjectId || this.subjects[0]?.id) === s.id ? 'selected' : ''}>${this.escapeHtml(s.name)}</option>`).join('')}
                 </select>
               </div>
               <div class="h-64 w-full relative">
@@ -5072,10 +5087,10 @@ class App {
                     <span>Task Grade 等级分布统计</span>
                   </h3>
                   <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md">
-                    ${currentScopeName}
+                    ${this.escapeHtml(currentScopeName)}
                   </span>
                 </div>
-                <p class="text-[11px] text-slate-400">A*、A、B、C 等各个成绩等级的占比 (${currentScopeName})</p>
+                <p class="text-[11px] text-slate-400">A*、A、B、C 等各个成绩等级的占比 (${this.escapeHtml(currentScopeName)})</p>
               </div>
               <div class="h-56 w-full relative">
                 <canvas id="chart-grade-doughnut"></canvas>
@@ -5091,10 +5106,10 @@ class App {
                     <span>各考核项目 (Task Category) 平均得分对比</span>
                   </h3>
                   <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md">
-                    ${currentScopeName}
+                    ${this.escapeHtml(currentScopeName)}
                   </span>
                 </div>
-                <p class="text-[11px] text-slate-400">Attainment 平时考核 vs Course Skills vs Learning Behaviour 各项目表现 (${currentScopeName})</p>
+                <p class="text-[11px] text-slate-400">Attainment 平时考核 vs Course Skills vs Learning Behaviour 各项目表现 (${this.escapeHtml(currentScopeName)})</p>
               </div>
               <div class="h-56 w-full relative">
                 <canvas id="chart-type-bar"></canvas>
@@ -5114,7 +5129,7 @@ class App {
         <div class="flex flex-wrap items-center gap-1.5 text-xs max-w-full">
           <select onchange="app.setExamFilter('subjectId', this.value)" class="px-2.5 py-1 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold focus:outline-none">
             <option value="all">全部学科</option>
-            ${this.subjects.map(s => `<option value="${s.id}" ${this.examFilter.subjectId === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+            ${this.subjects.map(s => `<option value="${this.escapeHtml(s.id)}" ${this.examFilter.subjectId === s.id ? 'selected' : ''}>${this.escapeHtml(s.name)}</option>`).join('')}
           </select>
           <div class="flex flex-wrap items-center gap-1 max-w-full bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/70 dark:border-slate-700/70">
             <button type="button" onclick="app.toggleExamListCategory('all')" class="px-2 py-0.5 rounded-lg text-[11px] font-semibold transition cursor-pointer ${isAllCats ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'}">全维度</button>
@@ -5125,7 +5140,7 @@ class App {
               { id: 'final', label: 'Final' }
             ].map(c => {
               const active = !isAllCats && selectedCats.includes(c.id);
-              return `<button type="button" onclick="app.toggleExamListCategory('${c.id}')" class="px-2 py-0.5 rounded-lg text-[11px] font-semibold transition cursor-pointer ${active ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'}">${c.label}</button>`;
+              return `<button type="button" onclick="app.toggleExamListCategory(${this.inlineArg(c.id)})" class="px-2 py-0.5 rounded-lg text-[11px] font-semibold transition cursor-pointer ${active ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700'}">${this.escapeHtml(c.label)}</button>`;
             }).join('')}
           </div>
         </div>
@@ -5460,7 +5475,7 @@ class App {
         return `
           <label class="dropdown-item flex items-center justify-between gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition ${checked ? 'bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 font-semibold' : 'text-slate-700 dark:text-slate-300'}" data-search-text="${searchText}">
             <span class="flex items-center gap-2 min-w-0">
-              <input type="checkbox" ${checked ? 'checked' : ''} onchange="app.togglePracticeUnit('${u.id}')" class="rounded text-indigo-600 focus:ring-indigo-500 shrink-0" />
+              <input type="checkbox" ${checked ? 'checked' : ''} onchange="app.togglePracticeUnit(${this.inlineArg(u.id)})" class="rounded text-indigo-600 focus:ring-indigo-500 shrink-0" />
               <span class="truncate">${this.escapeHtml(u.name)}</span>
             </span>
             <span class="text-[11px] text-slate-400 shrink-0">(${count}题)</span>
@@ -5486,7 +5501,7 @@ class App {
           return `
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-2xs">
               <span class="max-w-[200px] truncate">${this.escapeHtml(name)}</span>
-              <button onclick="app.togglePracticeUnit('${uid}')" class="text-indigo-400 hover:text-rose-500 font-bold leading-none ml-0.5" title="移除">×</button>
+              <button onclick="app.togglePracticeUnit(${this.inlineArg(uid)})" class="text-indigo-400 hover:text-rose-500 font-bold leading-none ml-0.5" title="移除">×</button>
             </span>
           `;
         }).join('')}
@@ -5525,7 +5540,7 @@ class App {
           <div class="flex flex-wrap items-center gap-3 text-xs">
             <select onchange="app.setPracticeFilter('subjectId', this.value)" class="px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-semibold focus:outline-none">
               <option value="all">选择学科 (全部)</option>
-              ${this.subjects.map(s => `<option value="${s.id}" ${this.practiceFilter.subjectId === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+              ${this.subjects.map(s => `<option value="${this.escapeHtml(s.id)}" ${this.practiceFilter.subjectId === s.id ? 'selected' : ''}>${this.escapeHtml(s.name)}</option>`).join('')}
             </select>
 
             <div class="relative custom-dropdown-container">
@@ -5751,24 +5766,24 @@ class App {
         <div class="card-hover bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
             <div class="flex items-center gap-3 min-w-0">
-              <span class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-xs shrink-0" style="background-color: ${sub.color}">
-                ${sub.name.slice(0, 1)}
+              <span class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-xs shrink-0" style="background-color: ${this.safeColor(sub.color)}">
+                ${this.escapeHtml(sub.name.slice(0, 1))}
               </span>
               <div class="min-w-0">
                 <div class="flex items-center gap-2">
-                  <h4 class="font-bold text-base text-slate-900 dark:text-slate-100 truncate">${sub.name}</h4>
-                  ${sub.curriculum ? `<span class="shrink-0 px-1.5 py-0.2 rounded text-[10px] font-mono font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/50">${sub.curriculum}</span>` : ''}
+                  <h4 class="font-bold text-base text-slate-900 dark:text-slate-100 truncate">${this.escapeHtml(sub.name)}</h4>
+                  ${sub.curriculum ? `<span class="shrink-0 px-1.5 py-0.2 rounded text-[10px] font-mono font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/50">${this.escapeHtml(sub.curriculum)}</span>` : ''}
                 </div>
-                <div class="text-xs text-slate-500 mt-0.5 truncate">${qCount}道错题 · ${exCount}次测验 · 满分${sub.defaultMaxScore || 30}分</div>
+                <div class="text-xs text-slate-500 mt-0.5 truncate">${qCount}道错题 · ${exCount}次测验 · 满分${this.escapeHtml(sub.defaultMaxScore || 30)}分</div>
               </div>
             </div>
 
             <div class="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
-              <button onclick="app.openUnitManagerModal('${sub.id}')" class="whitespace-nowrap shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition">
+              <button onclick="app.openUnitManagerModal(${this.inlineArg(sub.id)})" class="whitespace-nowrap shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition">
                 管理单元 (${units.length})
               </button>
-              <button onclick="app.openSubjectModal('${sub.id}')" class="whitespace-nowrap shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition">编辑</button>
-              <button onclick="app.deleteSubject('${sub.id}')" class="whitespace-nowrap shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-rose-500 hover:bg-rose-50 transition">删除</button>
+              <button onclick="app.openSubjectModal(${this.inlineArg(sub.id)})" class="whitespace-nowrap shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition">编辑</button>
+              <button onclick="app.deleteSubject(${this.inlineArg(sub.id)})" class="whitespace-nowrap shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-rose-500 hover:bg-rose-50 transition">删除</button>
             </div>
           </div>
 
@@ -5779,7 +5794,7 @@ class App {
                 ? '<span class="text-xs text-slate-400 italic">暂无单元，点击“管理单元”进行添加</span>' 
                 : units.map(u => {
                     const countInUnit = this.questions.filter(q => q.subjectId === sub.id && q.unitId === u.id).length;
-                    return `<span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">${u.name} <strong class="text-indigo-500">(${countInUnit})</strong></span>`;
+                    return `<span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">${this.escapeHtml(u.name)} <strong class="text-indigo-500">(${countInUnit})</strong></span>`;
                   }).join('')
               }
             </div>
@@ -5997,7 +6012,7 @@ class App {
                 ${Array.isArray(lookup.sources) && lookup.sources.length > 0 ? `
                   <div class="flex flex-wrap items-center gap-2 text-[11px] text-sky-700 dark:text-sky-300">
                     <span class="text-slate-400">参考来源:</span>
-                    ${lookup.sources.map(s => `<a href="${this.escapeHtml(s.uri)}" target="_blank" rel="noopener noreferrer" class="underline hover:text-sky-900 truncate max-w-[220px]">${this.escapeHtml(s.title || s.uri)}</a>`).join(' · ')}
+                    ${lookup.sources.map(s => `<a href="${this.safeLink(s.uri)}" target="_blank" rel="noopener noreferrer" class="underline hover:text-sky-900 truncate max-w-[220px]">${this.escapeHtml(s.title || s.uri)}</a>`).join(' · ')}
                   </div>
                 ` : ''}
               </div>
@@ -6166,7 +6181,7 @@ class App {
       return;
     }
     window.geminiAI.saveConfig({ apiKey: key });
-    const syncedMsg = (window.cloudSync && window.cloudSync.isLoggedIn()) ? '已保存并同步至云端！' : '已保存至本地浏览器！';
+    const syncedMsg = '已保存至本地浏览器；密钥不会同步到云端。';
     this.showToast(`API Key ${syncedMsg}`, 'success');
     this.render();
   }
@@ -6741,7 +6756,7 @@ class App {
     }
     const label = provider === 'deepseek' ? 'DeepSeek / OpenAI' : 'Gemini';
     const isCloudLoggedIn = !!(window.cloudSync && window.cloudSync.isLoggedIn());
-    this.showToast(`${label} AI 配置${isCloudLoggedIn ? '已保存并同步至云端' : '已保存至本地浏览器'}！`, 'success');
+    this.showToast(`${label} AI 配置已保存；密钥与接口地址仅存于本设备。`, 'success');
     const statusEl = document.getElementById('settings-gemini-status');
     if (statusEl) {
       statusEl.className = 'text-xs text-emerald-600 dark:text-emerald-400 font-semibold';
@@ -6966,7 +6981,7 @@ class App {
             <span id="settings-gemini-badge" class="text-[11px] px-2 py-0.5 rounded-full font-semibold ${aiCfg.apiKey ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'}">${aiCfg.apiKey ? '已配置密钥' : '未配置密钥'}</span>
           </div>
           <p class="text-xs text-slate-500 leading-relaxed">
-            两套服务商的 API Key 分别独立保存在当前浏览器的 <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800">localStorage</code> 中，导出 JSON 备份时不会包含任何密钥。
+            两套服务商的 API Key 分别独立保存在当前浏览器的 <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800">localStorage</code> 中，不会同步到云端或包含在 JSON 备份中；每台设备需要单独设置。
           </p>
 
           <div class="space-y-3 text-xs">

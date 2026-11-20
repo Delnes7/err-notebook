@@ -151,9 +151,9 @@ class PracticePaperEngine {
               <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-900 text-white font-bold text-xs">
                 ${idx + 1}
               </span>
-              ${sub ? `<span class="px-2 py-0.5 rounded text-xs font-semibold text-white" style="background-color: ${sub.color}">${sub.name}</span>` : ''}
-              ${this.options.showUnitBadge && unitName ? `<span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">单元: ${unitName}</span>` : ''}
-              ${q.paperCode ? `<span class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-amber-50 text-amber-800 border border-amber-300">${q.paperCode}</span>` : ''}
+              ${sub ? `<span class="px-2 py-0.5 rounded text-xs font-semibold text-white" style="background-color: ${window.app.safeColor(sub.color)}">${window.markdownRenderer.escapeHtml(sub.name)}</span>` : ''}
+              ${this.options.showUnitBadge && unitName ? `<span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">单元: ${window.markdownRenderer.escapeHtml(unitName)}</span>` : ''}
+              ${q.paperCode ? `<span class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-amber-50 text-amber-800 border border-amber-300">${window.markdownRenderer.escapeHtml(q.paperCode)}</span>` : ''}
             </div>
           </div>
 
@@ -164,15 +164,15 @@ class PracticePaperEngine {
 
           <!-- 答题演算留白区域（选择题不需要作答区域；预览时支持单题实时调节留白高度） -->
           ${!isMcq ? (spacingPx > 0 ? `
-            <div data-write-area-qid="${q.id}" class="practice-write-area ml-8 mt-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/30 p-2.5 text-xs text-slate-400 select-none flex flex-col justify-between transition-[min-height] duration-150" style="min-height: ${spacingPx}px;">
+            <div data-write-area-qid="${window.markdownRenderer.escapeHtml(String(q.id))}" class="practice-write-area ml-8 mt-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/30 p-2.5 text-xs text-slate-400 select-none flex flex-col justify-between transition-[min-height] duration-150" style="min-height: ${spacingPx}px;">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <span class="text-[10px] font-mono tracking-wider opacity-70">【答题与演算留白区${partCount > 1 ? ` · ${partCount}小问` : ''}】</span>
                 <div class="no-print flex flex-wrap items-center gap-1.5 bg-white/90 dark:bg-slate-900/90 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-2xs text-[11px] text-slate-600 dark:text-slate-300">
-                  <button type="button" onclick="app.adjustPracticeQuestionSpacing('${q.id}', -40)" class="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 font-bold leading-none" title="减少 40px">−</button>
-                  <input type="range" min="0" max="600" step="20" value="${Math.min(600, spacingPx)}" oninput="app.previewPracticeQuestionSpacing('${q.id}', this.value)" onchange="app.setPracticeQuestionSpacing('${q.id}', this.value)" class="w-20 sm:w-28 accent-indigo-600 cursor-pointer" title="拖动调节本题留白高度" />
-                  <button type="button" onclick="app.adjustPracticeQuestionSpacing('${q.id}', 40)" class="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 font-bold leading-none" title="增加 40px">+</button>
-                  <span data-write-val-qid="${q.id}" class="font-mono font-bold text-indigo-600 dark:text-indigo-400 min-w-[38px] text-right">${spacingPx}px</span>
-                  ${isCustomSpacing ? `<button type="button" onclick="app.resetPracticeQuestionSpacing('${q.id}')" class="text-[10px] text-slate-400 hover:text-rose-500 underline ml-0.5">默认</button>` : ''}
+                  <button type="button" onclick="app.adjustPracticeQuestionSpacing(${window.app.inlineArg(q.id)}, -40)" class="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 font-bold leading-none" title="减少 40px">−</button>
+                  <input type="range" min="0" max="600" step="20" value="${Math.min(600, spacingPx)}" oninput="app.previewPracticeQuestionSpacing(${window.app.inlineArg(q.id)}, this.value)" onchange="app.setPracticeQuestionSpacing(${window.app.inlineArg(q.id)}, this.value)" class="w-20 sm:w-28 accent-indigo-600 cursor-pointer" title="拖动调节本题留白高度" />
+                  <button type="button" onclick="app.adjustPracticeQuestionSpacing(${window.app.inlineArg(q.id)}, 40)" class="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 font-bold leading-none" title="增加 40px">+</button>
+                  <span data-write-val-qid="${window.markdownRenderer.escapeHtml(String(q.id))}" class="font-mono font-bold text-indigo-600 dark:text-indigo-400 min-w-[38px] text-right">${spacingPx}px</span>
+                  ${isCustomSpacing ? `<button type="button" onclick="app.resetPracticeQuestionSpacing(${window.app.inlineArg(q.id)})" class="text-[10px] text-slate-400 hover:text-rose-500 underline ml-0.5">默认</button>` : ''}
                 </div>
               </div>
               <div class="text-right text-[10px] font-mono opacity-40">得分：______</div>
@@ -180,7 +180,7 @@ class PracticePaperEngine {
           ` : `
             <div class="no-print ml-8 mt-2 flex items-center gap-2 text-[11px] text-slate-400">
               <span>本题当前无留白</span>
-              <button type="button" onclick="app.setPracticeQuestionSpacing('${q.id}', ${this.getDefaultSpacingPx(q)})" class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-semibold border border-slate-200 dark:border-slate-700 transition">+ 添加作答留白 (${this.getDefaultSpacingPx(q)}px)</button>
+              <button type="button" onclick="app.setPracticeQuestionSpacing(${window.app.inlineArg(q.id)}, ${this.getDefaultSpacingPx(q)})" class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-semibold border border-slate-200 dark:border-slate-700 transition">+ 添加作答留白 (${this.getDefaultSpacingPx(q)}px)</button>
             </div>
           `) : ''}
         </div>
@@ -206,12 +206,12 @@ class PracticePaperEngine {
             <div class="flex items-center gap-2 font-bold text-slate-900 mb-1.5">
               <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center">${idx + 1}</span>
               <span class="text-sm">第 ${idx + 1} 题解析</span>
-              ${q.paperCode ? `<span class="text-xs font-mono font-bold bg-amber-50 text-amber-800 border border-amber-300 px-1.5 py-0.5 rounded ml-1">${q.paperCode}</span>` : ''}
-              ${unitName ? `<span class="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded">[${unitName}]</span>` : ''}
+              ${q.paperCode ? `<span class="text-xs font-mono font-bold bg-amber-50 text-amber-800 border border-amber-300 px-1.5 py-0.5 rounded ml-1">${window.markdownRenderer.escapeHtml(q.paperCode)}</span>` : ''}
+              ${unitName ? `<span class="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded">[${window.markdownRenderer.escapeHtml(unitName)}]</span>` : ''}
             </div>
             ${q.reasons && q.reasons.length > 0 ? `
               <div class="text-xs text-rose-600 mb-1.5 bg-rose-50 px-2 py-0.5 rounded inline-block">
-                ⚠️ 曾犯错因：${q.reasons.join('、')}
+                ⚠️ 曾犯错因：${window.markdownRenderer.escapeHtml(q.reasons.join('、'))}
               </div>
             ` : ''}
             <div class="markdown-body text-slate-800 text-sm pl-7 leading-relaxed">
@@ -236,8 +236,8 @@ class PracticePaperEngine {
       <div class="max-w-4xl mx-auto bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-6 md:p-8 shadow-md rounded-2xl border border-slate-200 dark:border-slate-800 ${fontClass}">
         <!-- 试卷卷头 (紧凑精炼，不占用过多页面空间) -->
         <div class="text-center border-b-2 border-slate-900 dark:border-slate-100 pb-3 mb-4">
-          <h1 class="text-xl md:text-2xl font-black tracking-wide mb-1.5">${this.options.title}</h1>
-          <div class="text-xs md:text-sm text-slate-600 dark:text-slate-400 font-mono tracking-wider">${this.options.subtitle}</div>
+          <h1 class="text-xl md:text-2xl font-black tracking-wide mb-1.5">${window.markdownRenderer.escapeHtml(this.options.title)}</h1>
+          <div class="text-xs md:text-sm text-slate-600 dark:text-slate-400 font-mono tracking-wider">${window.markdownRenderer.escapeHtml(this.options.subtitle)}</div>
           <div class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">共 ${questions.length} 道重练题目 · 生成时间：${new Date().toLocaleDateString('zh-CN')}</div>
         </div>
 

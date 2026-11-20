@@ -437,3 +437,10 @@ body {
 
 
 
+
+@media screen and (max-width: 640px) {
+  .mark-scheme-modal { padding: 0.5rem; }
+  .mark-scheme-modal > div { max-height: calc(100dvh - 1rem); }
+  .mark-scheme-row-header > .mark-scheme-row-controls { min-width: 0; flex-wrap: wrap; }
+  .mark-scheme-row-controls input { width: min(8rem, 100%); max-width: 100%; }
+}

@@ -77,22 +77,33 @@ class MarkdownRenderer {
       return id;
     });
 
+    // 原始 Markdown 一律作为文本处理；生成的 HTML 和公式通过占位符恢复。
+    processed = this.escapeHtml(processed);
+    // Mark Scheme 单元格中使用 <br> 表示换行，只还原这一种无属性标签。
+    processed = processed.replace(/&lt;br\s*\/?&gt;/gi, "<br>");
+
     // 4. 解析行内代码 `code`
     processed = processed.replace(/`([^`\n]+)`/g, (match, code) => {
-      return `<code class="px-1.5 py-0.5 rounded text-xs font-mono bg-slate-100 dark:bg-slate-800 text-pink-600 dark:text-pink-400 border border-slate-200 dark:border-slate-700">${this.escapeHtml(code)}</code>`;
+      return `<code class="px-1.5 py-0.5 rounded text-xs font-mono bg-slate-100 dark:bg-slate-800 text-pink-600 dark:text-pink-400 border border-slate-200 dark:border-slate-700">${code}</code>`;
     });
 
     // 5. 解析图片与链接
-    // 图片: ![alt](url) - 不显示下方小字说明，保持试卷纯净感
+    // URL 必须是明确允许的协议；data URL 仅允许常见的位图格式。
+    const safeUrl = (url, image = false) => {
+      const decoded = url.replace(/&amp;/g, '&');
+      if (image && /^data:image\/(?:png|jpeg|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(decoded)) return this.escapeHtml(decoded);
+      if (/^https?:\/\/[^\s"'<>]+$/i.test(decoded)) return this.escapeHtml(decoded);
+      return '';
+    };
     processed = processed.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
-      return `<div class="my-3 text-center">
-        <img src="${url}" alt="${this.escapeHtml(alt)}" class="max-w-full max-h-96 inline-block rounded-lg shadow-md border border-slate-200 dark:border-slate-700 object-contain hover:shadow-lg transition-shadow cursor-pointer" onclick="window.previewImage && window.previewImage('${url}')" />
-      </div>`;
+      const safe = safeUrl(url, true);
+      if (!safe) return alt;
+      const safeAlt = alt.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      return `<div class="my-3 text-center"><img src="${safe}" alt="${safeAlt}" class="max-w-full max-h-96 inline-block rounded-lg shadow-md border border-slate-200 dark:border-slate-700 object-contain" /></div>`;
     });
-
-    // 链接: [text](url)
     processed = processed.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">${text}</a>`;
+      const safe = safeUrl(url);
+      return safe ? `<a href="${safe}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">${text}</a>` : text;
     });
 
     // 6. 分割为段落和行来解析块级元素

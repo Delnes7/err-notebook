@@ -101,14 +101,13 @@ class GeminiAIHelper {
     return {
       provider: this.getProvider(),
       gemini: {
-        apiKey: (localStorage.getItem(this.storageKeys.gemini.apiKey) || '').trim(),
         model: (localStorage.getItem(this.storageKeys.gemini.model) || '').trim(),
-        baseUrl: (localStorage.getItem(this.storageKeys.gemini.baseUrl) || '').trim()
+        // 自定义服务地址仅保存在本设备，防止云端配置篡改请求目标。
+
       },
       deepseek: {
-        apiKey: (localStorage.getItem(this.storageKeys.deepseek.apiKey) || '').trim(),
         model: (localStorage.getItem(this.storageKeys.deepseek.model) || '').trim(),
-        baseUrl: (localStorage.getItem(this.storageKeys.deepseek.baseUrl) || '').trim()
+
       },
       updatedAt: (localStorage.getItem(this.storageKeys.updatedAt) || '').trim() || new Date().toISOString()
     };
@@ -121,15 +120,11 @@ class GeminiAIHelper {
     }
     if (payload.gemini && typeof payload.gemini === 'object') {
       const k = this.storageKeys.gemini;
-      if (payload.gemini.apiKey !== undefined) localStorage.setItem(k.apiKey, String(payload.gemini.apiKey || '').trim());
       if (payload.gemini.model !== undefined) localStorage.setItem(k.model, String(payload.gemini.model || '').trim());
-      if (payload.gemini.baseUrl !== undefined) localStorage.setItem(k.baseUrl, String(payload.gemini.baseUrl || '').trim());
     }
     if (payload.deepseek && typeof payload.deepseek === 'object') {
       const k = this.storageKeys.deepseek;
-      if (payload.deepseek.apiKey !== undefined) localStorage.setItem(k.apiKey, String(payload.deepseek.apiKey || '').trim());
       if (payload.deepseek.model !== undefined) localStorage.setItem(k.model, String(payload.deepseek.model || '').trim());
-      if (payload.deepseek.baseUrl !== undefined) localStorage.setItem(k.baseUrl, String(payload.deepseek.baseUrl || '').trim());
     }
     if (payload.updatedAt) {
       localStorage.setItem(this.storageKeys.updatedAt, String(payload.updatedAt));

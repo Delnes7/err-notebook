@@ -178,6 +178,29 @@ class CloudSyncManager {
     }
   }
 
+  // Fetch the complete dataset before any local replacement. Refuse inconsistent reads.
+  async _fetchAllCloudRows() {
+    const rows = [];
+    const pageSize = 100;
+    let expectedCount = null;
+    while (true) {
+      const { data, error, count } = await this.client.from('notebook_items')
+        .select('item_type, item_id, data, updated_at, deleted', { count: 'exact' })
+        .eq('user_id', this.user.id)
+        .order('item_type', { ascending: true })
+        .order('item_id', { ascending: true })
+        .range(rows.length, rows.length + pageSize - 1);
+      if (error) throw error;
+      if (!Array.isArray(data) || !Number.isInteger(count) || (expectedCount !== null && count !== expectedCount)) {
+        throw new Error('云端数据读取不完整或正在变化，请重试；本地数据未被覆盖');
+      }
+      expectedCount = count;
+      rows.push(...data);
+      if (rows.length === expectedCount) return rows;
+      if (!data.length || rows.length > expectedCount) throw new Error('云端数据读取不完整，请重试；本地数据未被覆盖');
+    }
+  }
+
   async _collectLocalRows() {
     const uid = this.user.id;
     const nowIso = new Date().toISOString();
@@ -256,13 +279,6 @@ class CloudSyncManager {
     this._notify();
 
     try {
-      if (replaceCloud) {
-        const { error: delErr } = await this.client
-          .from('notebook_items')
-          .delete()
-          .eq('user_id', this.user.id);
-        if (delErr) throw delErr;
-      }
       const rows = await this._collectLocalRows();
       const newEpoch = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       if (replaceCloud || !localStorage.getItem(this.storageKeys.cloudEpoch)) {
@@ -275,7 +291,12 @@ class CloudSyncManager {
           deleted: false
         });
       }
-      await this._upsertBatch(rows);
+      if (replaceCloud) {
+        const { error } = await this.client.rpc('replace_notebook_items', { items: rows });
+        if (error) throw new Error(`安全覆盖未完成；请先在 Supabase 应用 security.sql：${error.message}`);
+      } else {
+        await this._upsertBatch(rows);
+      }
 
       if (replaceCloud || !localStorage.getItem(this.storageKeys.cloudEpoch)) {
         localStorage.setItem(this.storageKeys.cloudEpoch, newEpoch);
@@ -302,11 +323,29 @@ class CloudSyncManager {
     this._notify();
 
     try {
-      const { data: cloudRows, error } = await this.client
-        .from('notebook_items')
-        .select('item_type, item_id, data, updated_at, deleted')
-        .eq('user_id', this.user.id);
-      if (error) throw error;
+      const cloudRows = await this._fetchAllCloudRows();
+
+      // 清理历史明文密钥和可改变请求目标的地址，不再从云端恢复它们。
+      const aiRow = (cloudRows || []).find(row => row.item_type === 'meta' && row.item_id === 'ai_config' && !row.deleted);
+      if (aiRow && aiRow.data) {
+        const sanitized = { ...aiRow.data };
+        let needsScrub = false;
+        for (const provider of ['gemini', 'deepseek']) {
+          if (sanitized[provider] && typeof sanitized[provider] === 'object') {
+            sanitized[provider] = { ...sanitized[provider] };
+            for (const field of ['apiKey', 'baseUrl']) {
+              if (Object.prototype.hasOwnProperty.call(sanitized[provider], field)) {
+                delete sanitized[provider][field];
+                needsScrub = true;
+              }
+            }
+          }
+        }
+        if (needsScrub) {
+          await this._upsertBatch([{ user_id: this.user.id, item_type: 'meta', item_id: 'ai_config', data: sanitized, updated_at: aiRow.updated_at, deleted: false }]);
+          aiRow.data = sanitized;
+        }
+      }
 
       // 云端为空（例如首次从存有错题的 Mac 登录）：自动将本地全量上传至云端并建立 epoch
       if (!cloudRows || cloudRows.length === 0) {
@@ -333,7 +372,7 @@ class CloudSyncManager {
       const cloudEpoch = epochRow && epochRow.data ? String(epochRow.data.epoch || '') : '';
       const localEpoch = localStorage.getItem(this.storageKeys.cloudEpoch) || '';
       if (cloudEpoch && cloudEpoch !== localEpoch) {
-        await window.db.clearAllData();
+        await window.db.replaceCloudRecords(cloudRows || []);
         let resetPulled = 0;
         for (const row of cloudRows) {
           if (row.deleted) continue;
@@ -348,9 +387,7 @@ class CloudSyncManager {
             continue;
           }
           const itemData = { ...(row.data || {}), id: row.item_id };
-          if (row.item_type === 'subject') await window.db.saveSubject(itemData, true);
-          else if (row.item_type === 'exam') await window.db.saveExam(itemData, true);
-          else if (row.item_type === 'question') await window.db.saveQuestion(itemData, true);
+
           resetPulled++;
         }
         localStorage.setItem(this.storageKeys.cloudEpoch, cloudEpoch);
@@ -496,13 +533,9 @@ class CloudSyncManager {
     this._notify();
 
     try {
-      const { data: cloudRows, error } = await this.client
-        .from('notebook_items')
-        .select('item_type, item_id, data, updated_at, deleted')
-        .eq('user_id', this.user.id);
-      if (error) throw error;
+      const cloudRows = await this._fetchAllCloudRows();
 
-      await window.db.clearAllData();
+      await window.db.replaceCloudRecords(cloudRows || []);
       let pulled = 0;
       let cloudEpoch = '';
       for (const row of (cloudRows || [])) {
@@ -520,9 +553,7 @@ class CloudSyncManager {
           continue;
         }
         const itemData = { ...(row.data || {}), id: row.item_id };
-        if (row.item_type === 'subject') await window.db.saveSubject(itemData, true);
-        else if (row.item_type === 'exam') await window.db.saveExam(itemData, true);
-        else if (row.item_type === 'question') await window.db.saveQuestion(itemData, true);
+
         pulled++;
       }
       if (cloudEpoch) {

@@ -368,6 +368,25 @@ class NotebookDB {
     }
   }
 
+  // 在一个 IndexedDB 事务中替换三类记录，失败时由浏览器整体回滚。
+  async replaceCloudRecords(rows) {
+    const mapping = { subject: 'subjects', exam: 'exams', question: 'questions' };
+    const records = rows.filter(row => !row.deleted && mapping[row.item_type]).map(row => {
+      if (!row.item_id || !row.data || typeof row.data !== 'object' || Array.isArray(row.data)) {
+        throw new Error('云端数据格式无效，已保留本地数据');
+      }
+      return { store: mapping[row.item_type], value: { ...row.data, id: row.item_id } };
+    });
+    const db = await this.ready();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(['subjects', 'exams', 'questions'], 'readwrite');
+      tx.oncomplete = () => resolve();
+      tx.onabort = tx.onerror = () => reject(tx.error || new Error('本地数据替换失败'));
+      for (const name of ['subjects', 'exams', 'questions']) tx.objectStore(name).clear();
+      for (const record of records) tx.objectStore(record.store).put(record.value);
+    });
+  }
+
   async clearAllData() {
     const stores = ['subjects', 'exams', 'questions'];
     for (const storeName of stores) {

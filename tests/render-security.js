@@ -1,0 +1,12 @@
+const app = window.app;
+const payload = '<img src=x onerror=alert(1)>';
+app.subjects = [{id:'subject',name:'Subject',color:'#000',units:[{id:'unit',name:payload}]}];
+app.questions = [{id:'q',subjectId:'subject',unitId:'unit',content:'test',solution:'',parts:[{label:payload,marks:payload,text:'text',isWrong:true}]}];
+app.exams = [];
+window.practicePaperEngine = {selectedQuestionIds:new Set()};
+const html = app.getQuestionsCardsHtml();
+if (html.includes(payload)) throw Error('Unescaped question or unit label');
+if (!html.includes('&lt;img')) throw Error('Escaped label missing');
+const menu = app.renderFilterUnitDropdownHtml();
+if (menu.includes(payload)) throw Error('Unescaped unit label in dropdown');
+print('render security PASS');

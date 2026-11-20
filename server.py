@@ -9,10 +9,27 @@ import socketserver
 import webbrowser
 import os
 import sys
+from urllib.parse import urlsplit, unquote
 
 PORT = 8000
+project_dir = os.path.dirname(os.path.abspath(__file__))
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    def translate_path(self, path):
+        # Only publish the application assets, never project files or directories.
+        relative = unquote(urlsplit(path).path).lstrip('/') or 'index.html'
+        allowed = relative == 'index.html' or (
+            relative.startswith(('js/', 'css/'))
+            and all(part not in ('', '.', '..') and not part.startswith('.') for part in relative.split('/'))
+        )
+        if not allowed:
+            return os.path.join(project_dir, '__not_found__')
+        resolved = os.path.realpath(os.path.join(project_dir, relative))
+        asset_root = os.path.realpath(os.path.join(project_dir, relative.split('/')[0]))
+        if relative != 'index.html' and os.path.commonpath([resolved, asset_root]) != asset_root:
+            return os.path.join(project_dir, '__not_found__')
+        return resolved
+
     def end_headers(self):
         # 禁用本地缓存，确保修改立即生效
         self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
@@ -20,6 +37,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 def main():
     # 切换至项目所在目录
+    global project_dir
     project_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(project_dir)
 
@@ -28,7 +46,7 @@ def main():
     httpd = None
     for p in range(PORT, PORT + 20):
         try:
-            httpd = socketserver.TCPServer(("", p), Handler)
+            httpd = socketserver.TCPServer(("127.0.0.1", p), Handler)
             port = p
             break
         except OSError:
