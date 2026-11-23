@@ -157,6 +157,9 @@ class GeminiAIHelper {
    */
   async compressImage(fileOrDataUrl, maxWidth = 1400, quality = 0.82) {
     let source = fileOrDataUrl;
+    if (window.notebookNative && source instanceof Blob) {
+      return window.notebookNative.convertImage(source, maxWidth, quality);
+    }
 
     if (this._isHeicFile(source) && typeof source !== 'string') {
       let convertedBlob = null;

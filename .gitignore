@@ -8,3 +8,12 @@ reference/antigravity/
 
 # 云端测试脚本包含本项目的测试账号标识
 tests/supabase-transaction-check.sql
+
+# iOS generated assets and local Xcode state
+.ios-cache/
+ios/ErrorNotebook/Web/
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
+ios/build/
+DerivedData/
+*.xcresult/

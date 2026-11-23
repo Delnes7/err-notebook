@@ -92,7 +92,7 @@ class CloudSyncManager {
   async signUp(email, password) {
     await this.init();
     if (!this.client) throw new Error('Supabase SDK 尚未加载完成，请检查网络或刷新重试');
-    const redirectTo = window.location.origin && window.location.origin !== 'null'
+    const redirectTo = /^https?:$/.test(window.location.protocol) && window.location.origin && window.location.origin !== 'null'
       ? `${window.location.origin}${window.location.pathname}`
       : undefined;
     try {

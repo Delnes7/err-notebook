@@ -2537,6 +2537,11 @@ class App {
     try {
       const data = await window.db.exportAllData();
       const jsonStr = JSON.stringify(data, null, 2);
+      if (window.notebookNative) {
+        const result = await window.notebookNative.exportBackup(jsonStr);
+        if (!result.cancelled) this.showToast('备份已导出', 'success');
+        return;
+      }
       const blob = new Blob([jsonStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -5520,14 +5525,15 @@ class App {
             <p class="text-xs text-slate-500 mt-1">当前已选择 <strong class="text-indigo-600 text-sm font-bold">${selectedCount}</strong> 道题目 · 自动生成 A4 标准排版重做强化卷</p>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <button onclick="app.quickSelectPractice('none')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
               清空重置
             </button>
             <button onclick="app.printPracticePaper()" class="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 transition">
               <span>🖨️</span>
-              <span>立即打印 / 导出为 PDF</span>
+              <span>${window.notebookNative ? '系统打印' : '立即打印 / 导出为 PDF'}</span>
             </button>
+            ${window.notebookNative ? `<button onclick="app.printPracticePaper(true)" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 text-white">分享 PDF</button>` : ''}
           </div>
         </div>
 
@@ -5736,7 +5742,7 @@ class App {
     this.render();
   }
 
-  printPracticePaper() {
+  async printPracticePaper(exportPDF = false) {
     const selectedCount = window.practicePaperEngine.getSelectedCount();
     if (selectedCount === 0) {
       this.showToast('请先至少选择一道错题再打印！', 'warning');
@@ -5749,10 +5755,20 @@ class App {
     const fontClass = `paper-font-${window.practicePaperEngine.options.fontSize || 'medium'}`;
     const prevClass = document.body.className;
     document.body.classList.add(fontClass);
-    window.print();
-    setTimeout(() => {
-      document.body.className = prevClass;
-    }, 500);
+    if (window.notebookNative) {
+      try {
+        // Give WebKit a frame to commit the current print content and fonts.
+        await document.fonts.ready;
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        if (exportPDF) await window.notebookNative.exportPDF();
+        else await window.notebookNative.print();
+      } catch (error) {
+        this.showToast('导出失败：' + error.message, 'error');
+      } finally { document.body.className = prevClass; }
+    } else {
+      window.print();
+      setTimeout(() => { document.body.className = prevClass; }, 500);
+    }
   }
 
   // --- 模块 5：学科与单元管理视图 ---
@@ -6173,7 +6189,7 @@ class App {
     this.showToast('✅ 已将原图直接插入题目正文，可直接核对保存！', 'success');
   }
 
-  saveQuickGeminiKey() {
+  async saveQuickGeminiKey() {
     const input = document.getElementById('ai-quick-key-input');
     const key = input ? input.value.trim() : '';
     if (!key) {
@@ -6181,7 +6197,11 @@ class App {
       return;
     }
     window.geminiAI.saveConfig({ apiKey: key });
-    const syncedMsg = '已保存至本地浏览器；密钥不会同步到云端。';
+    if (window.notebookNative) {
+      try { await window.notebookNative.flushSecrets(); }
+      catch (_) { return; }
+    }
+    const syncedMsg = window.notebookNative ? '已保存至设备钥匙串；密钥不会同步到云端。' : '已保存至本地浏览器；密钥不会同步到云端。';
     this.showToast(`API Key ${syncedMsg}`, 'success');
     this.render();
   }
@@ -6736,7 +6756,7 @@ class App {
     }
   }
 
-  saveGeminiSettings() {
+  async saveGeminiSettings() {
     const providerEl = document.getElementById('settings-ai-provider');
     const keyEl = document.getElementById('settings-gemini-key');
     const modelEl = document.getElementById('settings-gemini-model');
@@ -6748,6 +6768,10 @@ class App {
       model: modelEl ? modelEl.value : (provider === 'deepseek' ? 'deepseek-flash' : 'gemini-3.8-flash'),
       baseUrl: baseEl ? baseEl.value : (provider === 'deepseek' ? 'https://api.deepseek.com' : 'https://generativelanguage.googleapis.com')
     });
+    if (window.notebookNative) {
+      try { await window.notebookNative.flushSecrets(); }
+      catch (_) { return false; }
+    }
     const badgeEl = document.getElementById('settings-gemini-badge');
     if (badgeEl) {
       const hasKey = window.geminiAI.hasApiKey();
@@ -6760,14 +6784,12 @@ class App {
     const statusEl = document.getElementById('settings-gemini-status');
     if (statusEl) {
       statusEl.className = 'text-xs text-emerald-600 dark:text-emerald-400 font-semibold';
-      statusEl.textContent = isCloudLoggedIn
-        ? '✅ 配置已保存到本地并自动同步至云端账号'
-        : '✅ 配置已保存到本地浏览器 (localStorage)';
+      statusEl.textContent = window.notebookNative ? '✅ 密钥已保存到设备钥匙串' : '✅ 密钥与接口地址已保存到当前浏览器';
     }
   }
 
   async testGeminiConnection() {
-    this.saveGeminiSettings();
+    if (await this.saveGeminiSettings() === false) return;
     const cfg = window.geminiAI.getConfig();
     const label = cfg.provider === 'deepseek' ? 'DeepSeek / OpenAI' : 'Gemini';
     const statusEl = document.getElementById('settings-gemini-status');
@@ -6894,6 +6916,7 @@ class App {
             <span>数据备份与系统设置</span>
           </h2>
           <p class="text-xs text-slate-500 mt-1">多设备云同步 + 本地离线存储，随时备份与还原</p>
+          ${window.notebookNative ? `<button onclick="window.notebookNative.showLicenses()" class="mt-2 text-xs text-indigo-600 underline">开源许可</button>` : ''}
         </div>
 
         <!-- 外观主题设置 -->
@@ -6981,7 +7004,7 @@ class App {
             <span id="settings-gemini-badge" class="text-[11px] px-2 py-0.5 rounded-full font-semibold ${aiCfg.apiKey ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'}">${aiCfg.apiKey ? '已配置密钥' : '未配置密钥'}</span>
           </div>
           <p class="text-xs text-slate-500 leading-relaxed">
-            两套服务商的 API Key 分别独立保存在当前浏览器的 <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800">localStorage</code> 中，不会同步到云端或包含在 JSON 备份中；每台设备需要单独设置。
+            ${window.notebookNative ? '两套服务商的 API Key 保存在本设备的系统钥匙串中，' : '两套服务商的 API Key 保存在当前浏览器的 localStorage 中，'}不会同步到云端或包含在 JSON 备份中；每台设备需要单独设置。
           </p>
 
           <div class="space-y-3 text-xs">
@@ -7038,7 +7061,7 @@ class App {
         <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-5">
           <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">📦 数据安全与迁移</h3>
           <p class="text-xs text-slate-500 leading-relaxed">
-            所有 A Level / CNCC 学科、单元、单科小考测验成绩、错题内容以及粘贴的插图均保存在您本地浏览器的 IndexedDB 数据库中，完全私密不上传任何外部服务器。复习备考时定期导出备份文件保存到 iCloud 或网盘中。
+            学科、单元、成绩、错题和插图默认保存在当前设备。开启云同步后会上传至 Supabase；使用 AI 识题时，选中的图片会发送到你配置的服务。建议定期导出 JSON 备份。
           </p>
 
           <div class="flex flex-wrap items-center gap-3 pt-2">
