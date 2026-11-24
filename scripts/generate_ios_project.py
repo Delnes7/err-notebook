@@ -10,8 +10,8 @@ def ref(name): return uid(name)
 objects = []
 def obj(name, body): objects.append(f'{uid(name)} = {{ {body} }};')
 def refs(names): return '(' + ', '.join(uid(n) for n in names) + ',)'
-sources = ['ErrorNotebookApp.swift','LocalAssets.swift','KeychainStore.swift','NotebookViewController.swift']
-resources = ['Web','Assets.xcassets','PrivacyInfo.xcprivacy','self-test.js','test-image.heic']
+sources = sorted(p.name for p in (ROOT / 'ios/ErrorNotebook').glob('*.swift'))
+resources = ['Web','Assets.xcassets','PrivacyInfo.xcprivacy','self-test.js','native-contract.js','test-image.heic']
 for f in sources + resources + ['Info.plist', 'ErrorNotebookUITests.swift']:
  typ = 'sourcecode.swift' if f.endswith('.swift') else {'Web':'folder','Assets.xcassets':'folder.assetcatalog','PrivacyInfo.xcprivacy':'text.xml','Info.plist':'text.plist.xml','test-image.heic':'image' }.get(f,'sourcecode.javascript')
  obj(f, f'isa = PBXFileReference; lastKnownFileType = {typ}; path = "{f}"; sourceTree = "<group>";')
@@ -31,7 +31,7 @@ for scope in ['project','app','test']:
   settings = base
   settings += 'SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; ENABLE_TESTABILITY = YES; DEBUG_INFORMATION_FORMAT = dwarf; ' if conf=='Debug' else 'SWIFT_OPTIMIZATION_LEVEL = "-O"; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; '
   if scope=='app': settings += 'PRODUCT_NAME = ErrorNotebook; PRODUCT_BUNDLE_IDENTIFIER = com.delnes.errornotebook; INFOPLIST_FILE = ErrorNotebook/Info.plist; CODE_SIGN_STYLE = Automatic; TARGETED_DEVICE_FAMILY = "1,2"; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; SUPPORTS_MACCATALYST = NO; ENABLE_USER_SCRIPT_SANDBOXING = YES; '
-  if scope=='app' and conf=='Release': settings += 'EXCLUDED_SOURCE_FILE_NAMES = ("self-test.js", "test-image.heic"); '
+  if scope=='app' and conf=='Release': settings += 'EXCLUDED_SOURCE_FILE_NAMES = ("self-test.js", "native-contract.js", "test-image.heic"); '
   if scope=='test': settings += 'PRODUCT_NAME = ErrorNotebookUITests; PRODUCT_BUNDLE_IDENTIFIER = com.delnes.errornotebook.uitests; GENERATE_INFOPLIST_FILE = YES; TEST_TARGET_NAME = ErrorNotebook; CODE_SIGN_STYLE = Automatic; TARGETED_DEVICE_FAMILY = "1,2"; '
   obj(scope+conf,f'isa = XCBuildConfiguration; buildSettings = {{ {settings} }}; name = {conf};')
  obj(scope+'config',f'isa = XCConfigurationList; buildConfigurations = {refs([scope+"Debug",scope+"Release"])}; defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;')

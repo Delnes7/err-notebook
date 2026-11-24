@@ -1,6 +1,23 @@
 # iOS 客户端
 
-SwiftUI 承载 WKWebView，网页业务代码从仓库根目录构建到 App 内，不加载远程站点作为主界面。稳定的 `notebook://localhost` 来源为 App 提供独立的 IndexedDB / WebKit 本地存储。
+主界面采用 SwiftUI：`TabView` 划分错题本、成绩、组卷、学科和设置，内部使用 `NavigationStack`、原生列表、表单、工具栏及系统弹窗。iOS 26 及以上由系统组件提供液态玻璃外观，旧系统使用对应的原生外观。
+
+数据与业务层仍复用本地 JavaScript 引擎，通过后台 WebKit 服务访问 IndexedDB、Supabase、题目编译、AI 和试卷排版。Markdown / KaTeX 使用独立的富文本展示组件。稳定的 `notebook://localhost` 来源保留旧版 App 的本地数据；主界面不加载远程站点。当前版本是 SwiftUI 界面与共享业务引擎的组合。
+
+## 源码组织
+
+| 文件 | 职责 |
+| --- | --- |
+| `ErrorNotebookApp.swift` | App 入口；正常启动进入原生界面，Debug 参数可进入旧版兼容测试界面 |
+| `NativeNotebookView.swift` | 五个功能入口、错题列表、详情和导航 |
+| `NativeQuestionEditor.swift` | 原生录题、选择题、分小问、评分表格、AI 图片、相机和裁剪 |
+| `NativeGradesSubjects.swift` | 成绩录入、趋势、权重、学科与单元管理 |
+| `NativeGradeCharts.swift` | 考核对比、单元错题、等级分布和雷达图 |
+| `NativePracticeSettings.swift` | 选题组卷、PDF、账号、备份和设置 |
+| `NativeDocuments.swift` | Markdown 展示、PDF 预览和分享 |
+| `NotebookStore.swift` | 页面状态、本地服务调用、PDF 生成 |
+| `NotebookAppearance.swift` | 两套外观、主题颜色和设备偏好 |
+| `native-engine.html` / `native-engine.js` | 本地业务服务与共享 JavaScript 之间的适配 |
 
 ## 开发与安装
 
@@ -16,18 +33,20 @@ SwiftUI 承载 WKWebView，网页业务代码从仓库根目录构建到 App 内
 
 | 功能 | iOS 实现 |
 | --- | --- |
-| 学科、单元、错题、选择题、分小问、题解、成绩与图表 | 同一份网页业务代码与数据模型 |
-| 图片与相机 | WKWebView 系统文件/照片选择器；相机用途说明写入 Info.plist |
+| 学科、单元、错题、选择题、分小问、题解、成绩 | SwiftUI 原生列表和表单；保留现有数据格式与计算规则 |
+| 成绩图表 | Swift Charts 趋势、分布和对比；原生雷达图 |
+| 图片与相机 | PhotosPicker、文件选择器、原生相机、裁剪与粘贴 |
 | HEIC、方向与大图缩放 | ImageIO 缩略图解码和 JPEG 输出，避免解码原始大图后再缩小 |
-| Markdown、公式、图表、高亮 | 随 App 打包的版本固定脚本和字体 |
+| Markdown、公式、代码高亮 | 独立 WKWebView 展示已渲染内容，依赖与字体随 App 打包 |
 | 云同步 | 同一个 Supabase 项目和事务函数，数据仍按账号隔离 |
-| JSON 备份导入 | 系统文件选择器及共享导入逻辑 |
+| JSON 备份导入 | 系统文件选择器，确认后在一个本地事务中恢复记录与权重 |
 | JSON 备份导出 | 原生分享面板，可保存到“文件”；单次 JSON 上限 128 MiB |
-| A4 打印 | UIPrintInteractionController，保留共享打印 CSS |
+| A4 打印 | 分享生成的 PDF 后使用系统打印，保留共享打印 CSS |
 | PDF 导出 | A4 UIPrintPageRenderer 生成多页 PDF，再通过系统面板分享 |
 | AI Key | 本设备钥匙串，不进行钥匙串 iCloud 同步；JS 仅持有运行期副本 |
-| 外部链接 | 原生浏览器窗口；外部网页不能获得 App 的原生消息桥接 |
-| 深浅色、字号、iPad 与横屏 | 共享设置和响应式页面，适配原生安全区域 |
+| 外部链接 | 使用系统打开 HTTP(S) / 邮件链接 |
+| 外观、深浅色和字号 | “安静书房 / 极简工作台”，设备偏好与系统动态字体 |
+| iPad 与横屏 | 系统自适应标签导航、安全区域和原生布局 |
 
 App 与 Safari 不共享本地数据库。可在网页导出 JSON 后从 App 导入，或登录同一个 Supabase 账号同步。AI 密钥需在 App 内单独设置。邮箱注册的确认邮件使用 Supabase 项目配置的 Site URL，确认后回到 App 登录。
 
@@ -57,7 +76,9 @@ xcodebuild -project ios/ErrorNotebook.xcodeproj \
   test
 ```
 
-`testOfflineSharedFeatures` 使用非持久的测试存储，验证离线资源、公式、数据库、密钥桥接、录题编辑、组卷、JSON 备份恢复、成绩页、HEIC 解码、PDF 正文及系统分享面板。`testPersistenceAcrossRelaunch` 使用单独的测试数据存储，验证终止进程后记录与钥匙串能否重新读取，随后清理测试条目。
+原生界面测试覆盖录题保存、成绩录入、外观切换与 PDF 分享；`testNativeServiceContract` 在独立测试数据中验证分小问、选择题、题解表格、分数、权重、备份恢复与 PDF 正文。旧版兼容测试继续检查共享引擎、HEIC、JSON 分享，以及独立持久存储重启读取。
+
+测试使用独立的 WebKit 存储、设备偏好和测试钥匙串，不读取 App 正式存储中的个人数据。
 
 这些测试不需要真实账号或 API Key。真机拍照、相册授权、剪贴板授权、AirPrint 打印机、真实 AI 服务和真实账号跨设备同步需在配置相应硬件或账号后单独验收。
 
@@ -65,10 +86,11 @@ xcodebuild -project ios/ErrorNotebook.xcodeproj \
 
 | 环境 | 结果 |
 | --- | --- |
-| iPhone 17 Pro / iOS 26.5 模拟器 | 3 个集成测试通过，含 JSON / PDF 分享、加权成绩与图表、重启持久化 |
-| iPad mini / iPadOS 26.5 模拟器 | 2 个集成测试通过，含 HEIC 与桥接权限检查 |
+| iPhone 17 Pro / iOS 26.5 模拟器 | 全部 7 个集成测试通过：原生录题、成绩、外观、JSON / PDF 分享、分小问与选择题、备份恢复、共享引擎和重启持久化 |
+| iPad mini / iPadOS 26.5 模拟器 | 4 个原生用例通过（分轮执行）：导航与外观、成绩录入、JSON 分享、录题与 PDF 分享、数据兼容与 PDF 正文 |
 | 真机 Release 编译（不签名） | 通过；尚未实际安装至物理设备 |
 | 共享网页安全回归 | 3 个测试套件通过 |
+| 网页两套布局 | 1280 / 768 / 390 / 320px 的目录选题、搜索、练习选择和各主页面无横向溢出检查通过 |
 
 ## 发布
 

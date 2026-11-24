@@ -37,7 +37,6 @@ class NotebookDB {
           const questionStore = db.createObjectStore('questions', { keyPath: 'id' });
           questionStore.createIndex('subjectId', 'subjectId', { unique: false });
           questionStore.createIndex('examId', 'examId', { unique: false });
-          questionStore.createIndex('mastery', 'mastery', { unique: false });
           questionStore.createIndex('createdAt', 'createdAt', { unique: false });
         }
 
@@ -239,14 +238,6 @@ class NotebookDB {
       };
       request.onerror = () => reject(request.error);
     });
-  }
-
-  async updateQuestionMastery(id, mastery) {
-    const q = await this.getQuestionById(id);
-    if (!q) return null;
-    q.mastery = mastery;
-    q.updatedAt = new Date().toISOString();
-    return this.saveQuestion(q);
   }
 
   // --- 设置项 ---

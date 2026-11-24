@@ -76,16 +76,7 @@ class PracticePaperEngine {
     this.selectedQuestionIds.clear();
   }
 
-  selectByMastery(questions, masteryLevel = 0) {
-    this.selectedQuestionIds.clear();
-    questions.forEach(q => {
-      if (q.mastery === masteryLevel) {
-        this.selectedQuestionIds.add(q.id);
-      }
-    });
-  }
-
-  selectByUnit(questions, subjectId, unitIdOrIds, masteryLevel = null) {
+  selectByUnit(questions, subjectId, unitIdOrIds) {
     this.selectedQuestionIds.clear();
     const isArray = Array.isArray(unitIdOrIds);
     questions.forEach(q => {
@@ -96,8 +87,7 @@ class PracticePaperEngine {
       } else {
         matchUnit = !unitIdOrIds || unitIdOrIds === 'all' || q.unitId === unitIdOrIds;
       }
-      const matchMastery = masteryLevel === null || q.mastery === masteryLevel;
-      if (matchSub && matchUnit && matchMastery) {
+      if (matchSub && matchUnit) {
         this.selectedQuestionIds.add(q.id);
       }
     });
@@ -154,6 +144,7 @@ class PracticePaperEngine {
               ${sub ? `<span class="px-2 py-0.5 rounded text-xs font-semibold text-white" style="background-color: ${window.app.safeColor(sub.color)}">${window.markdownRenderer.escapeHtml(sub.name)}</span>` : ''}
               ${this.options.showUnitBadge && unitName ? `<span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">单元: ${window.markdownRenderer.escapeHtml(unitName)}</span>` : ''}
               ${q.paperCode ? `<span class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-amber-50 text-amber-800 border border-amber-300">${window.markdownRenderer.escapeHtml(q.paperCode)}</span>` : ''}
+              ${this.options.showExamInfo && exam ? `<span class="text-xs text-slate-500">来源：${window.markdownRenderer.escapeHtml(exam.title || '')}</span>` : ''}
             </div>
           </div>
 
@@ -161,6 +152,7 @@ class PracticePaperEngine {
           <div class="markdown-body text-slate-800 dark:text-slate-200 pl-8 my-2 leading-relaxed">
             ${renderedContent}
           </div>
+          ${this.options.showReasons && Array.isArray(q.reasons) && q.reasons.length ? `<div class="pl-8 text-xs text-slate-500">错因：${window.markdownRenderer.escapeHtml(q.reasons.join('、'))}</div>` : ''}
 
           <!-- 答题演算留白区域（选择题不需要作答区域；预览时支持单题实时调节留白高度） -->
           ${!isMcq ? (spacingPx > 0 ? `

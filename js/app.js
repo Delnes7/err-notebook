@@ -13,9 +13,11 @@ class App {
     this.subjects = [];
     this.exams = [];
     this.questions = [];
+    this.focusedQuestionId = null;
     
     // 主题与显示设置 ('system' | 'light' | 'dark')
     this.theme = localStorage.getItem('theme') || 'system';
+    this.design = localStorage.getItem('notebook_design') === 'studio' ? 'studio' : 'study';
     this.questionFontSize = localStorage.getItem('question_font_size') || 'medium'; // 'normal' | 'medium' | 'large'
 
     // 错题库筛选条件
@@ -23,7 +25,6 @@ class App {
       subjectId: 'all',
       unitId: 'all',
       examId: 'all',
-      mastery: 'all',
       reason: 'all',
       search: '',
       sortBy: 'newest'
@@ -135,7 +136,6 @@ class App {
       solution: '',
       compiledSolution: '',
       reasons: [],
-      mastery: 0,
       difficulty: 3
     };
 
@@ -148,6 +148,7 @@ class App {
   }
 
   async init() {
+    this.applyDesign(this.design);
     this.applyTheme(this.theme);
     const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
     if (mq && typeof mq.addEventListener === 'function') {
@@ -193,6 +194,12 @@ class App {
   }
 
   // --- 主题切换 ('system' | 'light' | 'dark') ---
+  applyDesign(value) {
+    this.design = value === 'studio' ? 'studio' : 'study';
+    localStorage.setItem('notebook_design', this.design);
+    document.documentElement.dataset.design = this.design;
+  }
+
   applyTheme(theme) {
     const valid = ['system', 'light', 'dark'].includes(theme) ? theme : 'system';
     this.theme = valid;
@@ -1519,7 +1526,6 @@ class App {
     const unitEl = document.getElementById('editor-unit');
     const examEl = document.getElementById('editor-exam');
     const titleEl = document.getElementById('editor-title');
-    const masteryEl = document.getElementById('editor-mastery');
 
     const content = this.form.content;
     const solution = (this.form.questionType === 'multiple_choice')
@@ -1547,7 +1553,6 @@ class App {
     const paperCode = paperCodeEl ? paperCodeEl.value.trim().toUpperCase() : (this.form.paperCode || '');
 
     const title = titleEl ? titleEl.value.trim() : (this.form.title || '');
-    const mastery = masteryEl ? parseInt(masteryEl.value, 10) : (parseInt(this.form.mastery, 10) || 0);
 
     const question = {
       id: this.editingQuestionId || ('q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6)),
@@ -1578,7 +1583,6 @@ class App {
       solution: solution,
       solutionNote: (this.form.solutionNote || '').trim(),
       reasons: this.form.reasons || [],
-      mastery: mastery,
       difficulty: parseInt(this.form.difficulty, 10) || 3,
       reviewCount: this.editingQuestionId ? (this.form.reviewCount || 1) : 1,
       createdAt: this.form.createdAt || new Date().toISOString(),
@@ -1696,7 +1700,6 @@ class App {
       solutionNote: q.solutionNote || '',
       compiledSolution: '',
       reasons: [...(q.reasons || [])],
-      mastery: q.mastery,
       difficulty: q.difficulty || 3,
       reviewCount: q.reviewCount,
       createdAt: q.createdAt
@@ -1716,15 +1719,6 @@ class App {
     } catch (e) {
       this.showToast('删除失败：' + e.message, 'error');
     }
-  }
-
-  async toggleQuestionMastery(id) {
-    const q = this.questions.find(item => item.id === id);
-    if (!q) return;
-    const nextMastery = (q.mastery + 1) % 3;
-    await window.db.updateQuestionMastery(id, nextMastery);
-    await this.refreshData();
-    this.render();
   }
 
   async reassignQuestionSubject(questionId, targetSubjectId) {
@@ -1797,7 +1791,6 @@ class App {
       solutionNote: '',
       compiledSolution: '',
       reasons: [],
-      mastery: 0,
       difficulty: 3
     };
     this.aiState = {
@@ -2653,7 +2646,6 @@ class App {
       if (this.filter.subjectId !== 'all' && q.subjectId !== this.filter.subjectId) return false;
       if (this.filter.unitId !== 'all' && q.unitId !== this.filter.unitId) return false;
       if (this.filter.examId !== 'all' && q.examId !== this.filter.examId) return false;
-      if (this.filter.mastery !== 'all' && q.mastery !== parseInt(this.filter.mastery, 10)) return false;
       if (this.filter.reason !== 'all' && (!q.reasons || !q.reasons.includes(this.filter.reason))) return false;
       if (this.filter.search.trim()) {
         const query = this.filter.search.toLowerCase().trim();
@@ -2669,7 +2661,6 @@ class App {
     }).sort((a, b) => {
       if (this.filter.sortBy === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
       if (this.filter.sortBy === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
-      if (this.filter.sortBy === 'mastery') return a.mastery - b.mastery;
       if (this.filter.sortBy === 'difficulty') return (b.difficulty || 0) - (a.difficulty || 0);
       return 0;
     });
@@ -2709,25 +2700,37 @@ class App {
     }
   }
 
+  navIcon(name) {
+    const paths = {
+      questions: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18m3-13h4m-4 4h4"/>',
+      add: '<path d="M12 5v14M5 12h14"/>',
+      exams: '<path d="M3 3v18h18M7 15l4-4 4 2 5-6"/><path d="M17 7h3v3"/>',
+      practice: '<rect x="7" y="3" width="13" height="17" rx="2"/><path d="M4 7v13a2 2 0 0 0 2 2h10M10 8h7m-7 4h7m-7 4h4"/>',
+      subjects: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+      settings: '<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="var(--nb-side)"/><circle cx="15" cy="12" r="2" fill="var(--nb-side)"/><circle cx="10" cy="18" r="2" fill="var(--nb-side)"/>',
+    };
+    return `<span class="nav-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg></span>`;
+  }
+
   renderHeader() {
     const navItems = [
-      { id: 'questions', label: '错题库', icon: '📚', count: this.questions.length },
-      { id: 'add', label: this.editingQuestionId ? '编辑错题' : '录入错题', icon: '✍️' },
-      { id: 'exams', label: '成绩与图表', icon: '📈', count: this.exams.length },
-      { id: 'practice', label: '单元组卷', icon: '📑', count: window.practicePaperEngine.getSelectedCount() },
-      { id: 'subjects', label: '学科单元', icon: '🏷️' },
-      { id: 'settings', label: '备份设置', icon: '⚙️' }
+      { id: 'questions', label: '错题库', count: this.questions.length },
+      { id: 'add', label: this.editingQuestionId ? '编辑错题' : '录入错题' },
+      { id: 'exams', label: '成绩与图表', count: this.exams.length },
+      { id: 'practice', label: '单元组卷', count: window.practicePaperEngine.getSelectedCount() },
+      { id: 'subjects', label: '学科单元' },
+      { id: 'settings', label: '备份设置' }
     ];
 
     const navHtml = navItems.map(item => `
-      <button onclick="app.switchTab('${item.id}')" class="whitespace-nowrap shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+      <button onclick="app.switchTab('${item.id}')" ${this.currentTab === item.id ? 'aria-current="page"' : ''} class="whitespace-nowrap shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
         this.currentTab === item.id 
           ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' 
           : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
       }">
-        <span>${item.icon}</span>
+        ${this.navIcon(item.id)}
         <span class="whitespace-nowrap">${item.label}</span>
-        ${item.count !== undefined && item.count > 0 ? `<span class="px-1.5 py-0.2 rounded-full text-[10px] whitespace-nowrap ${this.currentTab === item.id ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}">${item.count}</span>` : ''}
+        ${item.count !== undefined && item.count > 0 ? `<span class="nav-count rounded-full text-[10px]">${item.count}</span>` : ''}
       </button>
     `).join('');
 
@@ -2735,21 +2738,21 @@ class App {
     if (topNav) topNav.innerHTML = navHtml;
 
     const mobileNavItems = [
-      { id: 'questions', label: '错题', icon: '📚', count: this.questions.length },
-      { id: 'exams', label: '成绩', icon: '📊', count: this.exams.length },
-      { id: 'practice', label: '组卷', icon: '📑', count: window.practicePaperEngine.getSelectedCount() },
-      { id: 'subjects', label: '学科', icon: '🏷️' },
-      { id: 'settings', label: '备份', icon: '⚙️' }
+      { id: 'questions', label: '错题', count: this.questions.length },
+      { id: 'exams', label: '成绩', count: this.exams.length },
+      { id: 'practice', label: '组卷', count: window.practicePaperEngine.getSelectedCount() },
+      { id: 'subjects', label: '学科' },
+      { id: 'settings', label: '备份' }
     ];
     const mobileNavHtml = mobileNavItems.map(item => `
-      <button onclick="app.switchTab('${item.id}')" class="whitespace-nowrap shrink-0 flex items-center justify-center gap-1 px-2.5 py-1.5 min-h-[38px] rounded-xl text-xs font-semibold transition-all ${
+      <button onclick="app.switchTab('${item.id}')" ${this.currentTab === item.id ? 'aria-current="page"' : ''} class="whitespace-nowrap shrink-0 flex items-center justify-center gap-1 px-2.5 py-1.5 min-h-[38px] rounded-xl text-xs font-semibold transition-all ${
         this.currentTab === item.id
           ? 'bg-indigo-600 text-white shadow-xs'
           : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
       }">
-        <span>${item.icon}</span>
+        ${this.navIcon(item.id)}
         <span>${item.label}</span>
-        ${item.count !== undefined && item.count > 0 ? `<span class="px-1.5 py-0.2 rounded-full text-[10px] ${this.currentTab === item.id ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}">${item.count}</span>` : ''}
+        ${item.count !== undefined && item.count > 0 ? `<span class="nav-count rounded-full text-[10px]">${item.count}</span>` : ''}
       </button>
     `).join('');
     const mobileNav = document.getElementById('mobile-nav-items');
@@ -2800,9 +2803,6 @@ class App {
     });
 
     const totalCount = this.questions.length;
-    const needWorkCount = this.questions.filter(q => q.mastery === 0).length;
-    const learningCount = this.questions.filter(q => q.mastery === 1).length;
-    const masteredCount = this.questions.filter(q => q.mastery === 2).length;
 
     const subFilterHtml = `
       <button onclick="app.setFilter('subjectId', 'all'); app.setFilter('unitId', 'all');" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition ${this.filter.subjectId === 'all' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
@@ -2821,7 +2821,8 @@ class App {
     `;
 
     return `
-      <div class="space-y-6">
+      <div class="space-y-6 question-library">
+        <div class="library-heading"><div><p>MY STUDY SPACE</p><h2>错题本</h2><span>让每道错题，都有收获。</span></div><span class="library-total">${totalCount} 道错题</span></div>
         <!-- 统计看板 -->
         <div class="grid grid-cols-2 gap-4">
           <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
@@ -2866,8 +2867,11 @@ class App {
         </div>
 
         <!-- 错题卡片流 (支持多档字号动态缩放) -->
-        <div id="questions-list-container" class="space-y-4 q-font-${this.questionFontSize || 'medium'}">
-          ${this.getQuestionsCardsHtml()}
+        <div class="library-workspace">
+          <aside id="question-index" aria-label="错题目录">${this.renderQuestionIndex()}</aside>
+          <div id="questions-list-container" class="space-y-4 q-font-${this.questionFontSize || 'medium'}">
+            ${this.getFocusedQuestionHtml()}
+          </div>
         </div>
       </div>
     `;
@@ -3006,8 +3010,34 @@ class App {
     });
   }
 
-  getQuestionsCardsHtml() {
-    const filtered = this.getFilteredQuestions();
+  renderQuestionIndex() {
+    const questions = this.getFilteredQuestions();
+    if (!questions.some(q => q.id === this.focusedQuestionId)) this.focusedQuestionId = questions[0]?.id || null;
+    const subjects = new Map(this.subjects.map(s => [s.id, s]));
+    return `<div class="question-index-heading"><span>题目目录</span><span>${questions.length} 道题</span></div>` + questions.map(q => `
+      <div class="question-index-row ${q.id === this.focusedQuestionId ? 'is-current' : ''}">
+        <input type="checkbox" aria-label="加入练习：${this.escapeHtml(q.title || '未命名错题')}" ${window.practicePaperEngine.selectedQuestionIds.has(q.id) ? 'checked' : ''} onchange="app.togglePracticeQuestion(${this.inlineArg(q.id)})">
+        <button type="button" aria-pressed="${q.id === this.focusedQuestionId}" onclick="app.focusQuestion(${this.inlineArg(q.id)})">
+          <span class="index-subject">${this.escapeHtml(subjects.get(q.subjectId)?.name || '未分配学科')}</span>
+          <strong>${this.escapeHtml(q.title || '未命名错题')}</strong>
+          <span class="index-source">${this.escapeHtml(q.paperCode || (q.questionType === 'multiple_choice' ? '选择题' : '结构题'))}</span>
+        </button>
+      </div>`).join('');
+  }
+
+  getFocusedQuestionHtml() {
+    const questions = this.getFilteredQuestions();
+    if (!questions.some(q => q.id === this.focusedQuestionId)) this.focusedQuestionId = questions[0]?.id || null;
+    return this.getQuestionsCardsHtml(this.focusedQuestionId);
+  }
+
+  focusQuestion(id) {
+    this.focusedQuestionId = id;
+    this.updateQuestionsListOnly();
+  }
+
+  getQuestionsCardsHtml(onlyId = null) {
+    const filtered = this.getFilteredQuestions().filter(q => onlyId === null || q.id === onlyId);
     const subMap = new Map(this.subjects.map(s => [s.id, s]));
     const examMap = new Map(this.exams.map(e => [e.id, e]));
 
@@ -3032,16 +3062,8 @@ class App {
         const isSelectedForPractice = window.practicePaperEngine.selectedQuestionIds.has(q.id);
         const isSolutionExpanded = this.expandedSolutionIds.has(q.id);
 
-        const masteryLabels = [
-          { label: '🔴 待攻克', bg: 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200 dark:border-rose-800' },
-          { label: '🟡 巩固中', bg: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800' },
-          { label: '🟢 已攻克', bg: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' }
-        ];
-        const currentMastery = masteryLabels[q.mastery] || masteryLabels[0];
-
         const isMcq = q.questionType === 'multiple_choice';
         const hasParts = q.parts && q.parts.length > 0;
-        const wrongParts = hasParts ? q.parts.filter(p => p.isWrong) : [];
 
         // 渲染正文内容
         let questionBodyHtml = '';
@@ -3151,10 +3173,7 @@ class App {
                   <span class="px-2 py-0.5 rounded-md text-xs font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200/50">🔘 单选题</span>
                   ${isSolutionExpanded && q.myOption ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 border border-rose-200/50">错选: ${this.escapeHtml(q.myOption)}</span>` : ''}
                   ${isSolutionExpanded && q.correctOption ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200/50">正解: ${this.escapeHtml(q.correctOption)}</span>` : ''}
-                ` : (hasParts ? `
-                  <span class="px-2 py-0.5 rounded-md text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 border border-indigo-200/50">📋 复合大题 (${q.parts.length}问)</span>
-                  ${wrongParts.length > 0 ? `<span class="px-2 py-0.5 rounded-md text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 border border-rose-200/50">错在: ${this.escapeHtml(wrongParts.map(p => p.label).join('、'))}</span>` : ''}
-                ` : '')}
+                ` : ''}
 
                 ${exam ? `
                   <span class="text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
@@ -3242,8 +3261,10 @@ class App {
   updateQuestionsListOnly() {
     const container = document.getElementById('questions-list-container');
     if (container) {
-      container.innerHTML = this.getQuestionsCardsHtml();
+      container.innerHTML = this.getFocusedQuestionHtml();
     }
+    const index = document.getElementById('question-index');
+    if (index) index.innerHTML = this.renderQuestionIndex();
     const clearBtn = document.getElementById('question-search-clear-btn');
     if (clearBtn) {
       clearBtn.classList.toggle('hidden', !this.filter.search);
@@ -3905,9 +3926,6 @@ class App {
 
     const examEl = document.getElementById('editor-exam');
     if (examEl) examEl.addEventListener('change', (e) => this.form.examId = e.target.value);
-
-    const masteryEl = document.getElementById('editor-mastery');
-    if (masteryEl) masteryEl.addEventListener('change', (e) => this.form.mastery = parseInt(e.target.value, 10));
 
     const titleEl = document.getElementById('editor-title');
     if (titleEl) titleEl.addEventListener('input', (e) => this.form.title = e.target.value);
@@ -5400,7 +5418,7 @@ class App {
     this.practiceFilter.subjectId = subId;
     this.practiceFilter.unitIds = unitId ? [unitId] : [];
     this.switchTab('practice');
-    this.generateUnitPracticePaper(0); // 优先组卷待攻克错题
+    this.generateUnitPracticePaper();
   }
 
   _examMatchesCategory(e, cat) {
@@ -5569,7 +5587,7 @@ class App {
               </div>
             </div>
 
-            <button onclick="app.generateUnitPracticePaper(null)" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-xs transition">
+            <button onclick="app.generateUnitPracticePaper()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-xs transition">
               📚 组卷：所选单元错题
             </button>
           </div>
@@ -5665,11 +5683,11 @@ class App {
     this.render();
   }
 
-  generateUnitPracticePaper(masteryLevel = null) {
+  generateUnitPracticePaper() {
     const subId = this.practiceFilter.subjectId;
     const unitIds = this.practiceFilter.unitIds || [];
 
-    window.practicePaperEngine.selectByUnit(this.questions, subId, unitIds, masteryLevel);
+    window.practicePaperEngine.selectByUnit(this.questions, subId, unitIds);
 
     const sub = this.subjects.find(s => s.id === subId);
     const searchSubs = sub ? [sub] : this.subjects;
@@ -6920,6 +6938,13 @@ class App {
         </div>
 
         <!-- 外观主题设置 -->
+        <section class="design-settings" aria-labelledby="design-heading">
+          <div><h3 id="design-heading">界面风格</h3><p>两套外观，共享全部功能；深浅色可独立选择。</p></div>
+          <div class="design-options">
+            <button type="button" data-design-option="study" aria-pressed="${this.design === 'study'}" onclick="app.applyDesign('study'); app.render();"><span class="design-swatch study-swatch" aria-hidden="true"></span><strong>安静书房</strong><small>暖色底 · 墨绿点缀</small></button>
+            <button type="button" data-design-option="studio" aria-pressed="${this.design === 'studio'}" onclick="app.applyDesign('studio'); app.render();"><span class="design-swatch studio-swatch" aria-hidden="true"></span><strong>极简工作台</strong><small>中性灰底 · 紫色点缀</small></button>
+          </div>
+        </section>
         <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100">🎨 外观主题</h3>
@@ -7115,5 +7140,5 @@ class App {
 // 导出全局单例并挂载
 window.app = new App();
 document.addEventListener('DOMContentLoaded', () => {
-  window.app.init();
+  if (!window.__nativeUI) window.app.init();
 });

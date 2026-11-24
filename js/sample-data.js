@@ -499,7 +499,6 @@ It is given that the probability that both balls chosen are blue is $\\frac{1}{6
 | | $\\frac{45}{73}, \\quad 0.616[4...]$ | **A1** | **If B0 M0:**<br>**SC B1** for $\\frac{\\frac{3}{8}}{\\frac{73}{120}}$ or $\\frac{0.375}{0.6083}$ **SC B1** $\\frac{45}{73}$ or $0.616$. |
 | | | **5** | |`,
     reasons: ['条件概率全概率公式分母漏算', '有效数字未保留3位'],
-    mastery: 0,
     difficulty: 4,
     reviewCount: 1,
     createdAt: '2026-10-28T16:00:00.000Z',
@@ -528,7 +527,6 @@ $$\\int \\left( 16x^{-2} - 4 \\right) dx = -\\frac{16}{x} - 4x + c$$
 > ⚠️ Notice $y < 0$ between $x=2$ and $x=4$:
 $$\\text{Area} = - \\int_{2}^{4} \\left( \\frac{16}{x^2} - 4 \\right) dx = - \\left[ -\\frac{16}{x} - 4x \\right]_{2}^{4} = -(-20 - (-16)) = 4$$`,
     reasons: ['曲线在x轴下方未加绝对值符号', '负指数积分求导混淆'],
-    mastery: 1,
     difficulty: 3,
     reviewCount: 2,
     createdAt: '2026-10-24T15:00:00.000Z',

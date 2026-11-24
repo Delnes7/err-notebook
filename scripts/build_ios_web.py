@@ -79,6 +79,8 @@ def main():
     html = html.replace('<script src="js/db.js">', '<script src="native.js"></script>\n  <script src="js/db.js">')
     (OUT / 'index.html').write_text(html)
     shutil.copy2(ROOT / 'ios/ErrorNotebook/native.js', OUT / 'native.js')
+    for name in ['native-engine.html', 'native-engine.js']:
+        shutil.copy2(ROOT / 'ios/ErrorNotebook' / name, OUT / name)
     css = OUT / 'css/style.css'
     css.write_text(css.read_text() + '\n.native-ios #top-nav { padding-top: 0; }\n.native-ios body { padding-bottom: max(16px, env(safe-area-inset-bottom)); }\n')
     print(f'iOS web bundle: {len(fetched)} verified assets, {sum(p.stat().st_size for p in OUT.rglob("*") if p.is_file()) // 1024} KiB')
