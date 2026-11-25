@@ -24,6 +24,42 @@ const editedExam = state.exams.find(exam => exam.id === canonical.id);
 assert(!state.exams.some(exam => exam.id === oldExam.id),'Editing must keep matching duplicate hidden');
 assert(editedExam.note === '' && editedExam.unitIds.length === 0,'Editing can clear legacy notes and units');
 await db.deleteExam(separate.id, true);
+
+const canonicalProbability = {
+  id:'native-probability', subjectId:'sub-al-math', category:'att_s1', categoryName:'Attainment S1',
+  title:'Probability & Discrete Random Variables', date:'2026-10-30', score:24, maxScore:29,
+  percentage:82.8, unitIds:['u-s1-prob'],
+};
+const shiftedCopy = {
+  ...canonicalProbability, id:'native-probability-legacy', category:'', categoryName:'',
+  title:'Probability & Discrete Random Variable', date:'2026-11-08',
+  score:undefined, maxScore:undefined, percentage:undefined,
+  scores:{'sub-al-math':{score:24,maxScore:29}},
+};
+const otherCategory = {...canonicalProbability, id:'native-probability-skills', date:'2026-10-22',
+  category:'skills', categoryName:'Course Skills', score:99, maxScore:100, percentage:99};
+const otherUnit = {...shiftedCopy, id:'native-probability-other-unit', unitIds:['u-s1-data']};
+for (const exam of [canonicalProbability, shiftedCopy, otherCategory, otherUnit]) await db.saveExam(exam, true);
+state = await call('snapshot');
+assert(!state.exams.some(exam => exam.id === shiftedCopy.id), 'Shifted legacy copy represented once');
+assert(state.exams.find(exam => exam.id === canonicalProbability.id).date === '2026-10-30', 'Canonical date retained');
+assert([otherCategory, otherUnit].every(entry => state.exams.some(exam => exam.id === entry.id)), 'Separate scores and units retained');
+const storedCopy = await db.getExamById(shiftedCopy.id);
+assert(storedCopy.scores && storedCopy.score === undefined, 'Projection does not rewrite the shifted source');
+const {isLoggedIn, syncNow} = cloudSync;
+try {
+  cloudSync.isLoggedIn = () => true;
+  cloudSync.syncNow = async () => {
+    await db.saveExam({...canonicalProbability, note:'Pulled on foreground'}, true);
+  };
+  state = await call('foreground');
+  assert(state.exams.find(exam => exam.id === canonicalProbability.id).note === 'Pulled on foreground',
+    'Foreground refresh includes updated cloud records');
+} finally {
+  Object.assign(cloudSync, {isLoggedIn, syncNow});
+}
+for (const exam of [canonicalProbability, shiftedCopy, otherCategory, otherUnit]) await db.deleteExam(exam.id, true);
+
 let form=await call('newQuestion');
 Object.assign(form,{subjectId:subject.id,unitId:'native-unit',title:'Native structured',questionType:'structured',structuredMode:'multi_part',stem:'Shared $x^2$',parts:[{id:'p1',label:'(a)',marks:'2',isWrong:true,text:'Differentiate.',afterText:'Then consider the stationary point.',solutionMode:'mark_scheme_table',solutionRows:[{question:'(a)',answer:'$2x$',marks:'M1 A1',guidance:'Derivative'}]},{id:'p2',label:'(b)',marks:'1',isWrong:false,text:'Find the point.',solutionMode:'none'}],difficulty:'4'});
 state=await call('saveQuestion',{id:'native-contract-question',form});

@@ -205,6 +205,13 @@ final class ErrorNotebookUITests: XCTestCase {
     let attachment = XCTAttachment(screenshot: app.screenshot())
     attachment.lifetime = .keepAlways
     add(attachment)
+    saved.tap()
+    XCTAssertTrue(app.staticTexts["exam-question-count"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["本场考试还没有错题"].exists)
+    XCTAssertFalse(app.textFields["exam-title"].exists)
+    app.buttons["edit-exam"].tap()
+    XCTAssertTrue(app.textFields["exam-title"].waitForExistence(timeout: 5))
+    app.buttons["cancel-editor"].tap()
     selectTab("学科", in: app)
     app.buttons["manage-subject-sub-al-math"].tap()
     app.buttons["subject-assessment"].tap()

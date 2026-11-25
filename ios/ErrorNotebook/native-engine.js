@@ -15,116 +15,14 @@
   async function snapshot() {
     await app.refreshData();
     const config = geminiAI.getConfig();
-    const originalExams = app.exams;
-    const exams = normalizeExams(originalExams);
-    let assessments;
-    try {
-      app.exams = exams;
-      assessments = app.subjects.map(subject => app.getSubjectAssessment(subject.id));
-    } finally {
-      app.exams = originalExams;
-    }
-    const examAliases = new Map(exams.flatMap(exam => exam.legacyExamIds.map(id => [id, exam.id])));
-    const questions = app.questions.map(question => examAliases.has(question.examId)
-      ? {...question, examId:examAliases.get(question.examId)} : question);
-    return { subjects:app.subjects, questions, exams, assessments,
+    const assessments = app.subjects.map(subject => app.getSubjectAssessment(subject.id));
+    return { subjects:app.subjects, questions:app.questions, exams:app.exams, assessments,
       assessmentConfigs:app.assessmentConfigs, categoryScores:app.categoryScores,
       sync:cloudSync.getStatusSummary(), cloudConfig:cloudSync.getConfig(),
       ai:{provider:config.provider,model:config.model,baseUrl:config.baseUrl,hasKey:!!config.apiKey},
       reasons:app.presetReasons };
   }
 
-  function normalizeExams(exams) {
-    const subjects = new Map(app.subjects.map(subject => [subject.id, subject]));
-    const configs = new Map(app.subjects.map(subject => [subject.id, app.getSubjectCategories(subject.id)]));
-    const unitOwners = new Map();
-    for (const subject of app.subjects) {
-      for (const unit of subject.units || []) {
-        if (!unitOwners.has(unit.id)) unitOwners.set(unit.id, new Set());
-        unitOwners.get(unit.id).add(subject.id);
-      }
-    }
-    const mathModules = new Map([['p1', 'p1'], ['s1', 's1'], ['sub-al-math-p1', 'p1'], ['sub-al-math-s1', 's1']]);
-    const clean = value => String(value ?? '').trim();
-    const keyText = value => clean(value).toLowerCase().replace(/\s+/g, ' ');
-    const scoreKey = value => clean(value) && Number.isFinite(Number(value)) ? Number(value) : null;
-    const normalized = exams.map(exam => {
-      const units = [...new Set([...(exam.unitIds || []), exam.unitId].filter(Boolean))];
-      const owners = new Set(units.flatMap(id => [...(unitOwners.get(id) || [])]));
-      let subjectId = exam.subjectId;
-      const moduleHint = mathModules.get(subjectId);
-      if (!subjects.has(subjectId)) {
-        if (moduleHint && subjects.has('sub-al-math')) subjectId = 'sub-al-math';
-        else if (owners.size === 1) [subjectId] = owners;
-      }
-      return { ...exam, subjectId, unitIds: units, moduleHint };
-    });
-    const hidden = new Set();
-    const uncategorized = new Map(normalized.filter(exam => !clean(exam.category)).map(exam => [exam.id, exam]));
-    const linkLegacy = (current, old) => {
-      hidden.add(old.id);
-      current.legacyExamIds.push(old.id);
-    };
-    for (const exam of normalized) {
-      const previousLinks = exam.legacyExamIds;
-      exam.legacyExamIds = [];
-      if (!clean(exam.category) || !Array.isArray(previousLinks)) continue;
-      for (const id of previousLinks) {
-        const old = uncategorized.get(id);
-        if (old && !hidden.has(id) && (!subjects.has(old.subjectId) || old.subjectId === exam.subjectId)) linkLegacy(exam, old);
-      }
-    }
-    const candidates = new Map();
-    const signature = exam => {
-      const title = keyText(exam.title).replace(/^functions$/, 'function');
-      if (!title || !exam.date || scoreKey(exam.percentage) === null) return null;
-      return JSON.stringify([title, exam.date, scoreKey(exam.percentage)]);
-    };
-    for (const exam of normalized) {
-      const key = signature(exam);
-      if (!key || !clean(exam.category) || !subjects.has(exam.subjectId)) continue;
-      if (!candidates.has(key)) candidates.set(key, []);
-      candidates.get(key).push(exam);
-    }
-    for (const old of normalized) {
-      if (hidden.has(old.id) || clean(old.category) || !signature(old)) continue;
-      const raw = scoreKey(old.score), max = scoreKey(old.maxScore);
-      if (raw === null || max === null) continue;
-      const matches = (candidates.get(signature(old)) || []).filter(current => {
-        if (current.id === old.id || scoreKey(current.score) !== raw || scoreKey(current.maxScore) !== max) return false;
-        if (subjects.has(old.subjectId) && current.subjectId !== old.subjectId) return false;
-        if (old.moduleHint && /_[ps]1$/.test(current.category) && !current.category.endsWith(old.moduleHint)) return false;
-        if (clean(old.categoryName) && keyText(old.categoryName) !== keyText(current.categoryName)) return false;
-        return true;
-      });
-      if (matches.length !== 1) continue;
-      const [current] = matches;
-      linkLegacy(current, old);
-      current.unitIds = [...new Set([...current.unitIds, ...old.unitIds])];
-      if (!clean(current.note)) current.note = old.note;
-    }
-    return normalized.filter(exam => !hidden.has(exam.id)).map(exam => {
-      const categories = configs.get(exam.subjectId) || [];
-      const categoryByName = categories.find(category => [category.id, category.name].some(name => keyText(name) === keyText(exam.categoryName || exam.type)));
-      const unitModule = new Set(exam.unitIds.map(id => /(?:^|[-_])([ps]1)(?:[-_]|$)/i.exec(id)?.[1]?.toLowerCase()).filter(Boolean));
-      const module = exam.moduleHint || (unitModule.size === 1 ? [...unitModule][0] : '');
-      const type = keyText(exam.type);
-      const title = keyText(exam.title);
-      let category = clean(exam.category) || categoryByName?.id;
-      if (!category) {
-        if (exam.isFinal || type === 'final') category = module ? 'final_' + module : 'final';
-        else if (/learning behavio[u]?r/.test(title + ' ' + type)) category = 'behavior';
-        else if (type === 'course skills') category = 'skills';
-        else if (subjects.get(exam.subjectId)?.curriculum === 'CNCC') category = 'exams';
-        else category = module ? 'att_' + module : 'attainment';
-      }
-      const labels = {attainment:'Attainment', att_p1:'Attainment P1', att_s1:'Attainment S1', exams:'Attainment', skills:'Course Skills', behavior:'Learning Behavior', final:'Final', final_p1:'Final P1', final_s1:'Final S1'};
-      const categoryName = categories.find(entry => entry.id === category)?.name
-        || clean(exam.categoryName) || labels[category] || category;
-      const { moduleHint, ...record } = exam;
-      return { ...record, category, categoryName };
-    });
-  }
   async function put(type, value) {
     const map={question:'questions',exam:'exams',subject:'subjects'};
     if(!map[type] || !value || typeof value.id!=='string' || !value.id) throw Error('记录格式无效');
@@ -155,11 +53,7 @@
     switch(action) {
       case 'snapshot': return snapshot();
       case 'newQuestion': app.resetEditorForm(); return app.form;
-      case 'editQuestion': {
-        app.editQuestion(p.id);
-        const linkedExam = normalizeExams(app.exams).find(exam => exam.legacyExamIds.includes(app.form.examId));
-        return linkedExam ? {...app.form, examId: linkedExam.id} : app.form;
-      }
+      case 'editQuestion': app.editQuestion(p.id); return app.form;
       case 'compile': return setForm(p.form);
       case 'saveQuestion': {
         const f=setForm(p.form);if(!f.content.trim())throw Error('请填写题目正文');
@@ -185,7 +79,7 @@
         e.grade=app.calculateGrade(e.percentage,sub.curriculum);e.isFinal=String(e.category).includes('final');
         e.categoryName=app.getSubjectCategories(sub.id).find(c=>c.id===e.category)?.name||e.categoryName||e.category;
         e.type=e.categoryName;e.unitId=e.unitIds?.[0]||'';
-        const existing = normalizeExams(app.exams).find(exam => exam.id === e.id);
+        const existing = app.exams.find(exam => exam.id === e.id);
         e.legacyExamIds = existing?.legacyExamIds || [];
         await put('exam',e);return snapshot();
       }
@@ -193,22 +87,7 @@
         const methods={question:'deleteQuestion',exam:'deleteExam',subject:'deleteSubject'};
         if(!methods[p.type])throw Error('无效记录类型');
         if (p.type === 'exam') {
-          const exam = normalizeExams(app.exams).find(record => record.id === p.id);
-          const ids = new Set([p.id, ...(exam?.legacyExamIds || [])]);
-          const updatedAt = new Date().toISOString();
-          const questions = app.questions.filter(q => ids.has(q.examId)).map(q => ({...q, examId:'', updatedAt}));
-          const connection = await db.ready();
-          await new Promise((resolve, reject) => {
-            const tx = connection.transaction(['exams','questions'], 'readwrite');
-            tx.oncomplete = resolve;
-            tx.onabort = () => reject(tx.error || Error('删除成绩失败'));
-            for (const id of ids) tx.objectStore('exams').delete(id);
-            for (const question of questions) tx.objectStore('questions').put(question);
-          });
-          if (cloudSync.isLoggedIn()) {
-            for (const id of ids) await cloudSync.pushItem('exam', id, {id, updatedAt}, true);
-            for (const question of questions) await cloudSync.pushItem('question', question.id, question);
-          }
+          await app.removeExam(p.id);
         } else {
           await db[methods[p.type]](p.id);
         }
@@ -231,6 +110,9 @@
         return snapshot();
       }
       case 'sync': await cloudSync.syncNow();return snapshot();
+      case 'foreground':
+        if (cloudSync.isLoggedIn()) await cloudSync.syncNow().catch(() => {});
+        return snapshot();
       case 'push': await cloudSync.pushAllLocalToCloud(true);return snapshot();
       case 'pull': await cloudSync.pullOverwriteLocal();return snapshot();
       case 'signIn': await cloudSync.signIn(p.email,p.password);return snapshot();
@@ -253,7 +135,7 @@
         return snapshot();
       case 'clearExamples':
         for(const q of app.questions)await db.deleteQuestion(q.id);
-        for(const e of app.exams)await db.deleteExam(e.id);
+        for(const e of await db.getAllExams())await db.deleteExam(e.id);
         return snapshot();
       case 'clearLocal': await db.replaceCloudRecords([]);await db.saveAssessmentConfigs({},true);await db.saveCategoryScores({},true);return snapshot();
       case 'recognize': {

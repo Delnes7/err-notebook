@@ -292,6 +292,13 @@ enum NotebookError: LocalizedError {
     }
   }
   func refresh() async { _ = await perform("snapshot") }
+  func syncOrRefresh() async {
+    if (snapshot["sync"] as? Fields)?.flag("loggedIn") == true {
+      await perform("sync")
+    } else {
+      await refresh()
+    }
+  }
   func subject(_ id: String) -> NotebookRecord? { subjects.first { $0.id == id } }
   func assessment(_ id: String) -> Fields {
     assessments.first { ($0["subject"] as? Fields)?.text("id") == id } ?? [:]

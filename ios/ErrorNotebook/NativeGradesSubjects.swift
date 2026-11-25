@@ -61,8 +61,8 @@ struct NativeGradesView: View {
             title: "还没有考试记录", symbol: "chart.bar", message: "添加原始分数或 Curve 后成绩，自动计算等级和加权成绩。")
         }
         ForEach(records) { exam in
-          Button {
-            editor = RecordEditorRequest(type: "exam", record: exam.fields)
+          NavigationLink {
+            NativeExamQuestionsView(examID: exam.id)
           } label: {
             HStack {
               VStack(alignment: .leading, spacing: 6) {
@@ -88,11 +88,18 @@ struct NativeGradesView: View {
                 ).foregroundStyle(.secondary)
               }
             }.padding(.vertical, 6).contentShape(Rectangle())
-          }.buttonStyle(.plain).swipeActions { Button("删除", role: .destructive) { delete = exam } }
+          }
+          .swipeActions(allowsFullSwipe: false) {
+            Button("删除", role: .destructive) { delete = exam }
+            Button("编辑成绩") {
+              editor = RecordEditorRequest(type: "exam", record: exam.fields)
+            }.tint(.accentColor)
+          }
         }
       } header: { NotebookSectionHeader("考试记录 · \(records.count) 场") }
     }.notebookSurface()
       .navigationTitle(subjectID.flatMap { store.subject($0)?.text("name") } ?? "成绩")
+      .refreshable { await store.syncOrRefresh() }
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) {
           Menu {
@@ -144,6 +151,54 @@ struct NativeGradesView: View {
       }
   }
 
+}
+
+private struct NativeExamQuestionsView: View {
+  @EnvironmentObject private var store: NotebookStore
+  let examID: String
+  @State private var editor: RecordEditorRequest?
+
+  private var exam: NotebookRecord? { store.exams.first { $0.id == examID } }
+  private var questions: [NotebookRecord] {
+    store.questions.filter { $0.text("examId") == examID }
+  }
+
+  var body: some View {
+    List {
+      if exam != nil {
+        Section {
+          if questions.isEmpty {
+            EmptyNotebook(
+              title: "本场考试还没有错题", symbol: "book.closed",
+              message: "录入或编辑错题时，可在「关联考试」中选择这场考试。")
+          }
+          ForEach(questions) { question in
+            NavigationLink {
+              NativeQuestionDetail(id: question.id)
+            } label: {
+              NativeQuestionRow(question: question)
+            }
+          }
+        } header: {
+          NotebookSectionHeader("本场考试错题 · \(questions.count) 道")
+            .accessibilityIdentifier("exam-question-count")
+        }
+      } else {
+        EmptyNotebook(title: "考试记录已移除", symbol: "doc", message: "返回成绩页查看其他考试。")
+      }
+    }
+    .notebookSurface()
+    .navigationTitle(exam?.text("title", "考试错题") ?? "考试错题")
+    .navigationBarTitleDisplayMode(.inline)
+    .toolbar {
+      if let exam {
+        Button("编辑成绩") {
+          editor = RecordEditorRequest(type: "exam", record: exam.fields)
+        }.accessibilityIdentifier("edit-exam")
+      }
+    }
+    .sheet(item: $editor) { NativeRecordEditor(type: $0.type, initial: $0.record) }
+  }
 }
 
 struct NativeAssessmentView: View {

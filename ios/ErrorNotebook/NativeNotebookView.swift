@@ -55,7 +55,7 @@ struct NativeNotebookView: View {
       }
     #endif
     .onChange(of: scenePhase) { phase in
-      if phase == .active && store.loaded { Task { await store.refresh() } }
+      if phase == .active && store.loaded { Task { await store.perform("foreground") } }
     }
     .alert(
       "操作未完成",
@@ -203,13 +203,7 @@ struct NativeQuestionList: View {
         delete = nil
       }
     }
-    .refreshable {
-      if (store.snapshot["sync"] as? Fields)?.flag("loggedIn") == true {
-        await store.perform("sync")
-      } else {
-        await store.refresh()
-      }
-    }
+    .refreshable { await store.syncOrRefresh() }
   }
   private var style: NotebookStyle { NotebookStyle(rawValue: design) ?? .study }
 }

@@ -281,6 +281,121 @@ class App {
   }
 
   // --- 数据刷新与智能平滑升级 ---
+  normalizeExams(exams) {
+    const subjects = new Map(this.subjects.map(subject => [subject.id, subject]));
+    const configs = new Map(this.subjects.map(subject => [subject.id, this.getSubjectCategories(subject.id)]));
+    const unitOwners = new Map();
+    for (const subject of this.subjects) {
+      for (const unit of subject.units || []) {
+        if (!unitOwners.has(unit.id)) unitOwners.set(unit.id, new Set());
+        unitOwners.get(unit.id).add(subject.id);
+      }
+    }
+    const mathModules = new Map([['p1', 'p1'], ['s1', 's1'], ['sub-al-math-p1', 'p1'], ['sub-al-math-s1', 's1']]);
+    const clean = value => String(value ?? '').trim();
+    const keyText = value => clean(value).toLowerCase().replace(/\s+/g, ' ');
+    const scoreKey = value => clean(value) && Number.isFinite(Number(value)) ? Number(value) : null;
+    const normalized = exams.map(source => {
+      let exam = source;
+      const [legacySubject] = Object.keys(source.scores || {});
+      if (legacySubject && source.score === undefined) {
+        const entry = source.scores[legacySubject] || {};
+        const score = Number(entry.score) || 0;
+        const maxScore = Number(entry.maxScore) || 100;
+        const percentage = maxScore > 0 ? Math.round(score / maxScore * 1000) / 10 : 0;
+        exam = {
+          ...source, score, maxScore, percentage, subjectId: legacySubject, type: 'Unit Test',
+          grade: this.calculateGrade(percentage, subjects.get(legacySubject)?.curriculum || 'A Level')
+        };
+      }
+      const units = [...new Set([...(Array.isArray(exam.unitIds) ? exam.unitIds : []), exam.unitId].filter(Boolean))];
+      const owners = new Set(units.flatMap(id => [...(unitOwners.get(id) || [])]));
+      let subjectId = exam.subjectId;
+      const moduleHint = mathModules.get(subjectId);
+      if (!subjects.has(subjectId)) {
+        if (moduleHint && subjects.has('sub-al-math')) subjectId = 'sub-al-math';
+        else if (owners.size === 1) [subjectId] = owners;
+      }
+      return { ...exam, subjectId, unitId: exam.unitId || units[0] || '', unitIds: units, moduleHint };
+    });
+    const hidden = new Set();
+    const uncategorized = new Map(normalized.filter(exam => !clean(exam.category)).map(exam => [exam.id, exam]));
+    const linkLegacy = (current, old) => {
+      hidden.add(old.id);
+      current.legacyExamIds.push(old.id);
+    };
+    for (const exam of normalized) {
+      const previousLinks = exam.legacyExamIds;
+      exam.legacyExamIds = [];
+      if (!clean(exam.category) || !Array.isArray(previousLinks)) continue;
+      for (const id of previousLinks) {
+        const old = uncategorized.get(id);
+        if (old && !hidden.has(id) && (!subjects.has(old.subjectId) || old.subjectId === exam.subjectId)) linkLegacy(exam, old);
+      }
+    }
+    const candidates = new Map();
+    const signature = exam => {
+      const title = keyText(exam.title)
+        .replace(/^functions$/, 'function')
+        .replace(/\bdiscrete random variables\b/g, 'discrete random variable');
+      if (!title || !exam.date || scoreKey(exam.percentage) === null) return null;
+      return JSON.stringify([title, scoreKey(exam.percentage)]);
+    };
+    for (const exam of normalized) {
+      const key = signature(exam);
+      if (!key || !clean(exam.category) || !subjects.has(exam.subjectId)) continue;
+      if (!candidates.has(key)) candidates.set(key, []);
+      candidates.get(key).push(exam);
+    }
+    for (const old of normalized) {
+      if (hidden.has(old.id) || clean(old.category) || !signature(old)) continue;
+      const raw = scoreKey(old.score), max = scoreKey(old.maxScore);
+      if (raw === null || max === null) continue;
+      const compatible = (candidates.get(signature(old)) || []).filter(current => {
+        if (current.id === old.id || scoreKey(current.score) !== raw || scoreKey(current.maxScore) !== max) return false;
+        if (subjects.has(old.subjectId) && current.subjectId !== old.subjectId) return false;
+        if (old.moduleHint && /_[ps]1$/.test(current.category) && !current.category.endsWith(old.moduleHint)) return false;
+        if (clean(old.categoryName) && keyText(old.categoryName) !== keyText(current.categoryName)) return false;
+        return true;
+      });
+      // A dated, categorized record wins over a legacy copy. A shifted date needs
+      // corroboration from both the subject and an explicitly linked unit.
+      const exact = compatible.filter(current => current.date === old.date);
+      const matches = exact.length ? exact : compatible.filter(current =>
+        current.subjectId === old.subjectId
+        && old.unitIds.some(id => current.unitIds.includes(id))
+        && Math.abs(Date.parse(current.date) - Date.parse(old.date)) <= 10 * 86400000
+        && !current.isFinal && !current.category.startsWith('final')
+        && !old.isFinal && keyText(old.type) !== 'final');
+      if (matches.length !== 1) continue;
+      const [current] = matches;
+      linkLegacy(current, old);
+      current.unitIds = [...new Set([...current.unitIds, ...old.unitIds])];
+      if (!clean(current.note)) current.note = old.note;
+    }
+    return normalized.filter(exam => !hidden.has(exam.id)).map(exam => {
+      const categories = configs.get(exam.subjectId) || [];
+      const categoryByName = categories.find(category => [category.id, category.name].some(name => keyText(name) === keyText(exam.categoryName || exam.type)));
+      const unitModule = new Set(exam.unitIds.map(id => /(?:^|[-_])([ps]1)(?:[-_]|$)/i.exec(id)?.[1]?.toLowerCase()).filter(Boolean));
+      const module = exam.moduleHint || (unitModule.size === 1 ? [...unitModule][0] : '');
+      const type = keyText(exam.type);
+      const title = keyText(exam.title);
+      let category = clean(exam.category) || categoryByName?.id;
+      if (!category) {
+        if (exam.isFinal || type === 'final') category = module ? 'final_' + module : 'final';
+        else if (/learning behavio[u]?r/.test(title + ' ' + type)) category = 'behavior';
+        else if (type === 'course skills') category = 'skills';
+        else if (subjects.get(exam.subjectId)?.curriculum === 'CNCC') category = 'exams';
+        else category = module ? 'att_' + module : 'attainment';
+      }
+      const labels = {attainment:'Attainment', att_p1:'Attainment P1', att_s1:'Attainment S1', exams:'Attainment', skills:'Course Skills', behavior:'Learning Behavior', final:'Final', final_p1:'Final P1', final_s1:'Final S1'};
+      const categoryName = categories.find(entry => entry.id === category)?.name
+        || clean(exam.categoryName) || labels[category] || category;
+      const { moduleHint, ...record } = exam;
+      return { ...record, category, categoryName };
+    });
+  }
+
   async refreshData() {
     this.subjects = await window.db.getAllSubjects();
     this.exams = await window.db.getAllExams();
@@ -340,45 +455,6 @@ class App {
 
     if (hasSubjectUpdates) {
       this.subjects = await window.db.getAllSubjects();
-    }
-
-    // 2. 平滑升级旧格式的大考记录至单科小考测验体系
-    let hasExamUpdates = false;
-    for (const ex of this.exams) {
-      if (ex.scores && Object.keys(ex.scores).length > 0 && ex.score === undefined) {
-        const subIds = Object.keys(ex.scores);
-        if (subIds.length > 0) {
-          const firstSubId = subIds[0];
-          const sc = ex.scores[firstSubId];
-          const sub = this.subjects.find(s => s.id === firstSubId);
-          ex.subjectId = firstSubId;
-          ex.score = sc.score || 0;
-          ex.maxScore = sc.maxScore || 100;
-          ex.percentage = ex.maxScore > 0 ? Math.round((ex.score / ex.maxScore) * 1000) / 10 : 0;
-          ex.grade = this.calculateGrade(ex.percentage, sub ? sub.curriculum : 'A Level');
-          ex.type = 'Unit Test';
-          await window.db.saveExam(ex);
-          hasExamUpdates = true;
-        }
-      }
-    }
-    if (hasExamUpdates) {
-      this.exams = await window.db.getAllExams();
-    }
-
-    // 2.5 保证所有 exam 均具备 unitIds 数组（支持一次考试包含不止一个单元）
-    let hasExamUnitUpdates = false;
-    for (const exam of this.exams) {
-      if (!exam.unitIds || !Array.isArray(exam.unitIds)) {
-        exam.unitIds = exam.unitId ? [exam.unitId] : [];
-        exam.unitId = exam.unitIds[0] || '';
-        await window.db.saveExam(exam);
-        hasExamUnitUpdates = true;
-      }
-    }
-
-    if (hasExamUnitUpdates) {
-      this.exams = await window.db.getAllExams();
     }
 
     // 3. 智能错题自愈：修复没有有效 subjectId 的错题
@@ -497,6 +573,11 @@ class App {
       this.questions = await window.db.getAllQuestions();
       this.exams = await window.db.getAllExams();
     }
+
+    this.exams = this.normalizeExams(this.exams);
+    const examAliases = new Map(this.exams.flatMap(exam => exam.legacyExamIds.map(id => [id, exam.id])));
+    this.questions = this.questions.map(question => examAliases.has(question.examId)
+      ? { ...question, examId: examAliases.get(question.examId) } : question);
 
     // 6. 保证 form 选中的学科与单元在有效范围内
     if (this.subjects.length > 0) {
@@ -1817,7 +1898,7 @@ class App {
     this.render();
   }
 
-  renderCollapsibleCard({ key, title, icon, subtitle, badge, contentHtml, extraActionHtml }) {
+  renderCollapsibleCard({ key, title, icon, subtitle, badge, contentHtml, extraActionHtml, collapsedSummaryHtml }) {
     const isCollapsed = this.collapsedExamSections.has(key);
     return `
       <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all duration-200">
@@ -1834,7 +1915,8 @@ class App {
           </div>
           <div class="w-full sm:w-auto flex flex-wrap items-center justify-between sm:justify-end gap-2 min-w-0">
             ${extraActionHtml ? `<div class="min-w-0 max-w-full" onclick="event.stopPropagation()">${extraActionHtml}</div>` : ''}
-            <button type="button" class="shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-500 hover:text-indigo-600 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 transition">
+            ${isCollapsed && collapsedSummaryHtml ? collapsedSummaryHtml : ''}
+            <button type="button" aria-expanded="${!isCollapsed}" class="shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-500 hover:text-indigo-600 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 transition">
               <span>${isCollapsed ? '展开' : '收起'}</span>
               <span class="chevron-rotate ${isCollapsed ? 'collapsed' : 'expanded'} text-[10px]">▼</span>
             </button>
@@ -2366,6 +2448,8 @@ class App {
 
     const exam = {
       id: examId || ('exam_' + Date.now()),
+      updatedAt: new Date().toISOString(),
+      legacyExamIds: this.exams.find(item => item.id === examId)?.legacyExamIds || [],
       subjectId,
       category,
       categoryName,
@@ -2396,10 +2480,42 @@ class App {
     }
   }
 
+  async removeExam(id) {
+    const exam = this.exams.find(record => record.id === id);
+    const ids = new Set([id, ...(exam?.legacyExamIds || [])]);
+    const updatedAt = new Date().toISOString();
+    const connection = await window.db.ready();
+    const questions = [];
+    await new Promise((resolve, reject) => {
+      const tx = connection.transaction(['exams', 'questions'], 'readwrite');
+      tx.oncomplete = resolve;
+      tx.onabort = () => reject(tx.error || Error('删除成绩失败'));
+      for (const examId of ids) tx.objectStore('exams').delete(examId);
+      const questionStore = tx.objectStore('questions');
+      for (const examId of ids) {
+        const request = questionStore.index('examId').openCursor(examId);
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) return;
+          const question = { ...cursor.value, examId: '', updatedAt };
+          cursor.update(question);
+          questions.push(question);
+          cursor.continue();
+        };
+      }
+    });
+    if (window.cloudSync?.isLoggedIn()) {
+      for (const examId of ids) await window.cloudSync.pushItem('exam', examId, { id: examId, updatedAt }, true);
+      for (const question of questions) await window.cloudSync.pushItem('question', question.id, question);
+    }
+  }
+
   async deleteExam(id) {
-    if (!confirm('确定要删除这场小考记录吗？关联该考试的错题仍会保留，但考试关联将会解除。')) return;
+    const duplicates = this.exams.find(exam => exam.id === id)?.legacyExamIds?.length || 0;
+    const message = duplicates ? '确定要删除这场小考记录及其旧版副本吗？' : '确定要删除这场小考记录吗？';
+    if (!confirm(message + '关联该考试的错题仍会保留，但考试关联将会解除。')) return;
     try {
-      await window.db.deleteExam(id);
+      await this.removeExam(id);
       await this.refreshData();
       this.showToast('已删除小考记录', 'info');
       this.render();
@@ -4461,6 +4577,10 @@ class App {
     const gpaSubjects = this.subjects.filter(s => !s.parentId);
     const allAssessments = gpaSubjects.map(s => this.getSubjectAssessment(s.id)).filter(Boolean);
     const validAssessments = allAssessments.filter(a => a.overallScore !== null);
+    const assessmentBySubject = new Map(allAssessments.map(assessment => [assessment.subject.id, assessment]));
+    const assessmentFor = id => assessmentBySubject.get(id) ?? this.getSubjectAssessment(id);
+    const focusedAssessment = this.examFilter.subjectId === 'all'
+      ? null : assessmentFor(this.examFilter.subjectId);
 
     let gpaPercentAvg = '--';
     if (validAssessments.length > 0) {
@@ -4516,7 +4636,8 @@ class App {
 
     // 🎓 学期学业评价与各科平时成绩看板 (统一浅色/深色主题，无GPA)
     const gpaDashboardHtml = `
-      <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
+      <div ${focusedAssessment ? 'id="subject-grade-summary"' : 'class="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4"'}>
+        ${focusedAssessment ? '' : `
         <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div>
             <div class="flex items-center gap-2">
@@ -4544,9 +4665,10 @@ class App {
             </div>
           </div>
         </div>
+        `}
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          ${allAssessments.map(assess => {
+        <div class="grid grid-cols-1 gap-4 ${focusedAssessment ? '' : 'md:grid-cols-2 lg:grid-cols-3'}">
+          ${(focusedAssessment ? [focusedAssessment] : allAssessments).map(assess => {
             const sub = assess.subject;
             const gradeBadgeStyle = this.getGradeBadgeStyle(assess.grade);
             const isMath = sub.id === 'sub-al-math' || sub.isParent;
@@ -4583,16 +4705,15 @@ class App {
 
                 <div class="space-y-1.5 pt-1">
                   <div class="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    <span>Task Category Averages:</span>
-                    <span class="text-[10px] text-slate-400 font-normal">日常打分均值</span>
+                    <span>考核维度得分</span>
                   </div>
-                  <div class="space-y-1.5 text-xs">
+                  <div class="grid grid-cols-1 gap-1.5 text-xs ${focusedAssessment ? 'md:grid-cols-2' : ''}">
                     ${assess.categories.map(cat => {
                       const pillStyle = this.getCategoryPillStyle(cat.id);
                       return `
                         <div class="flex items-center justify-between py-1 px-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs">
                           <div class="flex items-center gap-1.5 min-w-0">
-                            <span class="px-2 py-0.5 rounded-md text-[11px] font-bold truncate ${pillStyle}">
+                            <span class="px-2 py-0.5 rounded-md text-[11px] font-bold break-words ${pillStyle}">
                               ${this.escapeHtml(cat.name)} (${this.escapeHtml(cat.weight)}%)
                             </span>
                           </div>
@@ -4954,11 +5075,13 @@ class App {
           ${this.subjects.map(s => {
             const isCurrent = this.examFilter.subjectId === s.id;
             const sCount = this.exams.filter(e => e.subjectId === s.id).length;
+            const score = assessmentFor(s.id)?.overallScore;
             return `
-              <button onclick="app.focusSubjectGrades(${this.inlineArg(s.id)})" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${isCurrent ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
-                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${this.safeColor(s.color)}"></span>
-                <span>${this.escapeHtml(s.name)}</span>
-                <span class="px-1.5 py-0.2 rounded-full text-[10px] ${isCurrent ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'} font-mono">${sCount}</span>
+              <button onclick="app.focusSubjectGrades(${this.inlineArg(s.id)})" class="max-w-full px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${isCurrent ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
+                <span class="shrink-0 w-2.5 h-2.5 rounded-full" style="background-color: ${this.safeColor(s.color)}"></span>
+                <span class="min-w-0 break-words">${this.escapeHtml(s.name)}</span>
+                ${score != null ? `<span title="加权总评" class="shrink-0 tabular-nums ${isCurrent ? '' : 'text-indigo-700 dark:text-indigo-400'}">${score.toFixed(1)}%</span>` : ''}
+                <span title="考试场次" class="shrink-0 px-1.5 py-0.2 rounded-full text-[10px] ${isCurrent ? 'bg-white/20' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'} font-mono">${sCount}</span>
               </button>
             `;
           }).join('')}
@@ -4973,14 +5096,28 @@ class App {
       </div>
     `;
 
-    // 🎓 1. 学期综合平时成绩看板 (遵循用户要求：仅在查看全科数据时出现，且支持收起折叠)
     const gpaDashboardCardHtml = isAllSelected ? this.renderCollapsibleCard({
       key: 'gpa_dashboard',
       title: '学期综合学业评价',
       icon: '📋',
       badge: '全科综合',
       contentHtml: gpaDashboardHtml
-    }) : '';
+    }) : (focusedAssessment ? this.renderCollapsibleCard({
+      key: 'subject_grade_summary',
+      title: '单科成绩总览',
+      icon: '📋',
+      badge: this.escapeHtml(focusedAssessment.subject.name),
+      collapsedSummaryHtml: `
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs text-slate-500">当前加权总评</span>
+          <strong class="text-xl sm:text-2xl font-bold tabular-nums text-indigo-700 dark:text-indigo-400">
+            ${focusedAssessment.overallScore == null ? '待评定' : focusedAssessment.overallScore.toFixed(1) + '%'}
+          </strong>
+          ${focusedAssessment.overallScore == null ? '' : `<span class="px-2 py-0.5 rounded-lg text-xs font-bold ${this.getGradeBadgeStyle(focusedAssessment.grade)}">Grade ${this.escapeHtml(focusedAssessment.grade)}</span>`}
+        </div>
+      `,
+      contentHtml: gpaDashboardHtml
+    }) : '');
 
     // 🧭 2. 学情诊断与建议卡片 (支持收起折叠)
     const diagnosticCardHtml = this.renderCollapsibleCard({
@@ -5240,7 +5377,7 @@ class App {
           </div>
         </div>
 
-        <!-- 1. 🎓 十一学校国际部学期综合 GPA 与 Task Category 评价看板 (仅在全科模式下出现) -->
+        <!-- 学期综合评价或当前学科成绩 -->
         ${gpaDashboardCardHtml}
 
         <!-- 2. 🧭 学情诊断与智能提分复习建议 (全科宏观诊断 vs 单科精准深度诊断) -->
